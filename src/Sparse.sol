@@ -35,8 +35,6 @@ contract Sparse {
         }
     }
 
-    mapping(uint256 => TreeEntry) public tree;
-
     /// @notice Folds the merkle tree
     function foldMerklePath(
         bytes32[] memory path,
