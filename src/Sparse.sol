@@ -23,13 +23,25 @@ uint256 constant KEY_SIZE = 32;
 uint256 constant TREE_DEPTH = KEY_SIZE * 8;
 
 contract Sparse {
+    mapping(uint256 => bytes32) public emptyTreeHashes_;
+
+    constructor() {
+        emptyTreeHashes_[0] = Blake2s.toBytes32(emptyLeaf());
+
+        bytes32 lastHash = emptyTreeHashes_[0];
+        for (uint256 i = 1; i < TREE_DEPTH + 1; i++) {
+            lastHash = Blake2s.toBytes32(abi.encodePacked(lastHash, lastHash));
+            emptyTreeHashes_[i] = lastHash;
+        }
+    }
+
     mapping(uint256 => TreeEntry) public tree;
 
     /// @notice Folds the merkle tree
     function foldMerklePath(
         bytes32[] memory path,
         TreeEntry memory entry
-    ) public pure returns (bytes32) {
+    ) public view returns (bytes32) {
         bytes32 hashValue = hashLeaf(entry.leafIndex, entry.value);
         bytes32[] memory full_path = extendMerklePath(path);
         for (uint256 depth = 0; depth < full_path.length; depth++) {
@@ -89,33 +101,16 @@ contract Sparse {
 
     function extendMerklePath(
         bytes32[] memory path
-    ) public pure returns (bytes32[] memory) {
+    ) public view returns (bytes32[] memory) {
         uint256 emptyHashCount = TREE_DEPTH - path.length;
-        bytes32[] memory hashes = new bytes32[](emptyHashCount + path.length);
+        bytes32[] memory hashes = new bytes32[](256);
         for (uint256 i = 0; i < emptyHashCount; i++) {
-            hashes[i] = emptySubtreeHash(i);
+            hashes[i] = emptyTreeHashes_[i];
         }
         for (uint256 i = 0; i < path.length; i++) {
             hashes[emptyHashCount + i] = path[i];
         }
         return hashes;
-    }
-
-    function emptySubtreeHash(uint256 depth) public pure returns (bytes32) {
-        bytes32[] memory emptyTreeHashes = computeEmptyTreeHashes();
-        return emptyTreeHashes[depth];
-    }
-
-    function computeEmptyTreeHashes() public pure returns (bytes32[] memory) {
-        bytes32[] memory emptyTreeHashes = new bytes32[](TREE_DEPTH + 1);
-        emptyTreeHashes[0] = Blake2s.toBytes32(emptyLeaf());
-
-        bytes32 lastHash = emptyTreeHashes[0];
-        for (uint256 i = 1; i < TREE_DEPTH + 1; i++) {
-            lastHash = Blake2s.toBytes32(abi.encodePacked(lastHash, lastHash));
-            emptyTreeHashes[i] = lastHash;
-        }
-        return emptyTreeHashes;
     }
 
     function bit(

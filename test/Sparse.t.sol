@@ -17,14 +17,6 @@ contract SparseTest is Test {
         Blake2s.toBytes32(value);
     }
 
-    function test_emptyTreeHash() public {
-        bytes32 hash = sparse.emptySubtreeHash(TREE_DEPTH);
-        assertEq(
-            hash,
-            0x98a48e4ed1736188384ae8a79dd21c4d6687e5fd22ca18148906d78736c0d86a
-        );
-    }
-
     function test_hashLeaf() public {
         TreeEntry memory entry = TreeEntry({
             key: 42366496704336254375416776462386343662429697233927452559041593589277704190797,
@@ -84,5 +76,24 @@ contract SparseTest is Test {
                 0x7f00a6b2eede960857703c8cb9e96f28b910e6693412cea4b006f24239b681e0
             )
         );
+    }
+
+    function test_foldMerklePath2() public {
+        TreeEntry memory entry = TreeEntry({
+            key: 42366496704336254375416776462386343662429697233927452559041593589277704190797,
+            value: 0x0101010101010101010101010101010101010101010101010101010101010101,
+            leafIndex: 1
+        });
+        bytes32 leafHash = 0xc546f1eef1d499b7b6966254ec541653a205ed4bf7ae3f1ee1ddca773c009e85;
+
+        bytes32[] memory path  = new bytes32[](2);
+        path[0] = 0x0202020202020202020202020202020202020202020202020202020202020202;
+        path[1] = 0x0303030303030303030303030303030303030303030303030303030303030303;
+
+        bytes32 expected = sparse.hashBranch(path[0], leafHash);
+        expected = sparse.hashBranch(expected, path[1]);
+
+        bytes32 foldedHash = sparse.foldMerklePath(path, entry);
+        assertEq(foldedHash, expected);
     }
 }
