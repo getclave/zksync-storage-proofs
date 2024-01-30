@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
 import {Sparse, TreeEntry, TREE_DEPTH} from "../src/Sparse.sol";
+import {Blake2s} from "../src/Blake2s.sol";
 
 contract SparseTest is Test {
     Sparse public sparse;
@@ -11,13 +12,16 @@ contract SparseTest is Test {
         sparse = new Sparse();
     }
 
+    function testBlake2() public {
+        bytes memory value = hex"98a48e4ed1736188384ae8a79dd21c4d6687e5fd22ca18148906d78736c0d86a";
+        Blake2s.toBytes32(value);
+    }
+
     function test_emptyTreeHash() public {
         bytes32 hash = sparse.emptySubtreeHash(TREE_DEPTH);
         assertEq(
             hash,
-            bytes32(
-                0x98a48e4ed1736188384ae8a79dd21c4d6687e5fd22ca18148906d78736c0d86a
-            )
+            0x98a48e4ed1736188384ae8a79dd21c4d6687e5fd22ca18148906d78736c0d86a
         );
     }
 
@@ -30,25 +34,17 @@ contract SparseTest is Test {
         bytes32 hashValue = sparse.hashLeaf(entry.leafIndex, entry.value);
         assertEq(
             hashValue,
-            bytes32(
-                0x52f28950612240cb4fb218fbf6df83f6dbe271c056900b11966cfb9404c1dce0
-            )
+            0x52f28950612240cb4fb218fbf6df83f6dbe271c056900b11966cfb9404c1dce0
         );
     }
 
     function test_compress() public {
-        bytes32 lhs = bytes32(
-            0x6bbb316d292155ad8d2b47a03504033efbf70074141130e9e346a798f5904921
-        );
-        bytes32 rhs = bytes32(
-            0xc546f1eef1d499b7b6966254ec541653a205ed4bf7ae3f1ee1ddca773c009e85
-        );
+        bytes32 lhs = 0x6bbb316d292155ad8d2b47a03504033efbf70074141130e9e346a798f5904921;
+        bytes32 rhs = 0xc546f1eef1d499b7b6966254ec541653a205ed4bf7ae3f1ee1ddca773c009e85;
         bytes32 res = sparse.compress(lhs, rhs);
         assertEq(
             res,
-            bytes32(
-                0x65d2ecfac89775755ba564e7a72d108cebffcaa1d138b6d89a59cbcbf664bc6a
-            )
+            0x65d2ecfac89775755ba564e7a72d108cebffcaa1d138b6d89a59cbcbf664bc6a
         );
     }
 
