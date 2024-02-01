@@ -2,7 +2,6 @@
 pragma solidity ^0.8.13;
 
 import {Blake2s} from "./Blake2s.sol";
-import "forge-std/console.sol";
 
 // Type conversion between Rust implementation and Solidity implementation
 // H32          :           bytes32

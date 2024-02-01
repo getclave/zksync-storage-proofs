@@ -12,11 +12,6 @@ contract SparseTest is Test {
         sparse = new Sparse();
     }
 
-    function testBlake2() public {
-        bytes memory value = hex"98a48e4ed1736188384ae8a79dd21c4d6687e5fd22ca18148906d78736c0d86a";
-        Blake2s.toBytes32(value);
-    }
-
     function test_hashLeaf() public {
         TreeEntry memory entry = TreeEntry({
             key: 42366496704336254375416776462386343662429697233927452559041593589277704190797,
