@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Blake2s} from "./Blake2s.sol";
+import "forge-std/console.sol";
 
 // Type conversion between Rust implementation and Solidity implementation
 // H32          :           bytes32
@@ -283,12 +284,31 @@ contract Sparse {
         emptyTreeHashes_[ 255 ] = 0x395ebe57b2b0ca2592bc9b173eaaedf722c0121cf908386bf2b56d0179fde9c0;
     }
 
+    function getRootHash(
+        bytes32[] memory proof,
+        TreeEntry memory entry,
+        address account
+    ) public view returns (bytes32) {
+        uint256 keyHash = reverse(uint256(hashKey(account, entry.key)));
+        bytes32 leafHash = hashLeaf(entry.leafIndex, entry.value);
+        bytes32[] memory fullPath = extendMerklePath(proof);
+
+        for (uint256 depth = 0; depth < fullPath.length; depth++) {
+            if ((keyHash >> depth) & 1 == 1) {
+                leafHash = hashBranch(fullPath[depth], leafHash);
+            } else {
+                leafHash = hashBranch(leafHash, fullPath[depth]);
+            }
+        }
+
+        return leafHash;
+    }
+
     /// @notice Folds the merkle tree
-    function foldMerklePath(bytes32[] memory path, TreeEntry memory entry)
-        public
-        view
-        returns (bytes32)
-    {
+    function foldMerklePath(
+        bytes32[] memory path,
+        TreeEntry memory entry
+    ) public view returns (bytes32) {
         bytes32 hashValue = hashLeaf(entry.leafIndex, entry.value);
         bytes32[] memory full_path = extendMerklePath(path);
         for (uint256 depth = 0; depth < full_path.length; depth++) {
@@ -302,20 +322,7 @@ contract Sparse {
         return hashValue;
     }
 
-    function hashBranch(bytes32 left, bytes32 right)
-        public
-        pure
-        returns (bytes32)
-    {
-        bytes32 res = compress(left, right);
-        return res;
-    }
-
-    function compress(bytes32 left, bytes32 right)
-        public
-        pure
-        returns (bytes32 result)
-    {
+    function hashBranch(bytes32 left, bytes32 right) private pure returns (bytes32 result) {
         uint32[8] memory digest = Blake2s.toDigest(
             abi.encodePacked(left),
             abi.encodePacked(right)
@@ -331,16 +338,20 @@ contract Sparse {
         }
     }
 
-    function emptyLeaf() public pure returns (bytes memory) {
-        return new bytes(40);
+    /// @notice Hashes the tree key
+    function hashKey(address account, uint256 key) private pure returns (bytes32) {
+        bytes memory input = new bytes(64);
+        assembly {
+            // Store account starting at 12th byte
+            mstore(add(input, 0x2c), shl(96, account)) 
+            // Store key starting at 32th byte
+            mstore(add(input, 0x40), key)
+        }
+        return Blake2s.toBytes32(input);
     }
 
     /// @notice Hashes an individual leaf
-    function hashLeaf(uint64 leafIndex, bytes32 value)
-        public
-        pure
-        returns (bytes32)
-    {
+    function hashLeaf(uint64 leafIndex, bytes32 value) private pure returns (bytes32) {
         bytes memory input = new bytes(40);
         assembly {
             // Store leafIndex at first 8 bytes
@@ -351,23 +362,45 @@ contract Sparse {
         return Blake2s.toBytes32(input);
     }
 
-    function extendMerklePath(bytes32[] memory path)
-        public
-        view
-        returns (bytes32[] memory)
+    function extendMerklePath(bytes32[] memory path) private view returns (bytes32[] memory)
     {
         uint256 emptyHashCount = TREE_DEPTH - path.length;
         bytes32[] memory hashes = new bytes32[](256);
         for (uint256 i = 0; i < emptyHashCount; i++) {
             hashes[i] = emptyTreeHashes_[i];
         }
-        for (uint256 i = 0; i < path.length; i++) {
-            hashes[emptyHashCount + i] = path[i];
+
+        uint256 pathLength = path.length;
+        for (uint256 i = pathLength; i > 0; i--) {
+            hashes[emptyHashCount + pathLength - i] = path[i - 1];
         }
         return hashes;
     }
 
-    function bit(uint256 value, uint256 bitOffset) public pure returns (bool) {
+    function bit(uint256 value, uint256 bitOffset) private pure returns (bool) {
         return (value >> bitOffset) & 1 == 1;
+    }
+
+    function reverse(uint256 input) internal pure returns (uint256 v) {
+        v = input;
+
+        // swap bytes
+        v = ((v & 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00) >> 8) |
+            ((v & 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF) << 8);
+
+        // swap 2-byte long pairs
+        v = ((v & 0xFFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000) >> 16) |
+            ((v & 0x0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF) << 16);
+
+        // swap 4-byte long pairs
+        v = ((v & 0xFFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000) >> 32) |
+            ((v & 0x00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF) << 32);
+
+        // swap 8-byte long pairs
+        v = ((v & 0xFFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF0000000000000000) >> 64) |
+            ((v & 0x0000000000000000FFFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF) << 64);
+
+        // swap 16-byte long pairs
+        v = (v >> 128) | (v << 128);
     }
 }
