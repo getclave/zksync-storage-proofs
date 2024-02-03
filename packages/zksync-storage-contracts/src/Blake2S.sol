@@ -79,7 +79,7 @@ library Blake2s {
         return out;
     }
 
-        function toDigest(
+    function toDigest(
         bytes memory input1,
         bytes memory input2
     ) public pure returns (uint32[8] memory) {

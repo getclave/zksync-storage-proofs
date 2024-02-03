@@ -2,13 +2,14 @@
 pragma solidity ^0.8.13;
 
 import {Blake2s} from "./Blake2s.sol";
-import "forge-std/console.sol";
 
+// Solidity port of zksync-era's Sparse Merkle Tree implementation
+// https://github.com/matter-labs/zksync-era/blob/main/core/lib/merkle_tree/src/hasher/mod.rs
 // Type conversion between Rust implementation and Solidity implementation
-// H32          :           bytes32
-// U256         :           uint256
-// Key          :           uint256
-// ValueHash    :           bytes32
+// H32          : bytes32
+// U256         : uint256
+// Key          : uint256
+// ValueHash    : bytes32
 
 /// @title Sparse Tree Entry
 /// @member value The value of the entry
@@ -22,10 +23,12 @@ struct TreeEntry {
 uint256 constant KEY_SIZE = 32;
 uint256 constant TREE_DEPTH = KEY_SIZE * 8;
 
-contract Sparse {
+contract SparseMerkleTree {
     mapping(uint256 => bytes32) public emptyTreeHashes_;
 
     constructor() {
+        // Empty tree hashes
+        // Hardcoded to save gas
         emptyTreeHashes_[ 0 ] = 0x94bb15542026f4f607416f019dffe21bb39bbb32cc92085ab615660a6b5fbef4;
         emptyTreeHashes_[ 1 ] = 0x7952661ab5d63534c5ea72f81887d8dd6bf514b14c8e9fb714b6feb02efb96a0;
         emptyTreeHashes_[ 2 ] = 0x3d75808db532e9685bcc7969ad0f5f0872086b24e02b28cdc7df6e3cc1bd2371;
@@ -284,45 +287,40 @@ contract Sparse {
         emptyTreeHashes_[ 255 ] = 0x395ebe57b2b0ca2592bc9b173eaaedf722c0121cf908386bf2b56d0179fde9c0;
     }
 
+    /// @notice Calculates the root hash of the tree given a leaf and a proof
     function getRootHash(
-        bytes32[] memory proof,
+        bytes32[] calldata proof,
         TreeEntry memory entry,
         address account
     ) public view returns (bytes32) {
         uint256 keyHash = reverse(uint256(hashKey(account, entry.key)));
-        bytes32 leafHash = hashLeaf(entry.leafIndex, entry.value);
-        bytes32[] memory fullPath = extendMerklePath(proof);
 
-        for (uint256 depth = 0; depth < fullPath.length; depth++) {
-            if ((keyHash >> depth) & 1 == 1) {
-                leafHash = hashBranch(fullPath[depth], leafHash);
+        uint256 emptyLen = TREE_DEPTH - proof.length;
+        bytes32 result = hashLeaf(entry.leafIndex, entry.value);
+
+        uint256 i = 0;
+        for (; i < emptyLen; i++) {
+            bytes32 adjacentHash = emptyTreeHashes_[i];
+            if ((keyHash >> i) & 1 == 1) {
+                result = hashBranch(adjacentHash, result);
             } else {
-                leafHash = hashBranch(leafHash, fullPath[depth]);
+                result = hashBranch(result, adjacentHash);
             }
         }
 
-        return leafHash;
-    }
-
-    /// @notice Folds the merkle tree
-    function foldMerklePath(
-        bytes32[] memory path,
-        TreeEntry memory entry
-    ) public view returns (bytes32) {
-        bytes32 hashValue = hashLeaf(entry.leafIndex, entry.value);
-        bytes32[] memory full_path = extendMerklePath(path);
-        for (uint256 depth = 0; depth < full_path.length; depth++) {
-            bytes32 adjacentHash = full_path[depth];
-            if (bit(entry.key, depth)) {
-                hashValue = hashBranch(adjacentHash, hashValue);
+        for (; i < TREE_DEPTH; i++) {
+            bytes32 adjacentHash = proof[TREE_DEPTH - i - 1];
+            if ((keyHash >> i) & 1 == 1) {
+                result = hashBranch(adjacentHash, result);
             } else {
-                hashValue = hashBranch(hashValue, adjacentHash);
+                result = hashBranch(result, adjacentHash);
             }
         }
-        return hashValue;
+
+        return result;
     }
 
-    function hashBranch(bytes32 left, bytes32 right) private pure returns (bytes32 result) {
+    function hashBranch(bytes32 left, bytes32 right) public pure returns (bytes32 result) {
         uint32[8] memory digest = Blake2s.toDigest(
             abi.encodePacked(left),
             abi.encodePacked(right)
@@ -339,7 +337,7 @@ contract Sparse {
     }
 
     /// @notice Hashes the tree key
-    function hashKey(address account, uint256 key) private pure returns (bytes32) {
+    function hashKey(address account, uint256 key) public pure returns (bytes32) {
         bytes memory input = new bytes(64);
         assembly {
             // Store account starting at 12th byte
@@ -351,7 +349,7 @@ contract Sparse {
     }
 
     /// @notice Hashes an individual leaf
-    function hashLeaf(uint64 leafIndex, bytes32 value) private pure returns (bytes32) {
+    function hashLeaf(uint64 leafIndex, bytes32 value) public pure returns (bytes32) {
         bytes memory input = new bytes(40);
         assembly {
             // Store leafIndex at first 8 bytes
@@ -362,26 +360,13 @@ contract Sparse {
         return Blake2s.toBytes32(input);
     }
 
-    function extendMerklePath(bytes32[] memory path) private view returns (bytes32[] memory)
-    {
-        uint256 emptyHashCount = TREE_DEPTH - path.length;
-        bytes32[] memory hashes = new bytes32[](256);
-        for (uint256 i = 0; i < emptyHashCount; i++) {
-            hashes[i] = emptyTreeHashes_[i];
-        }
-
-        uint256 pathLength = path.length;
-        for (uint256 i = pathLength; i > 0; i--) {
-            hashes[emptyHashCount + pathLength - i] = path[i - 1];
-        }
-        return hashes;
-    }
-
-    function bit(uint256 value, uint256 bitOffset) private pure returns (bool) {
+    /// @notice Returns the bit at the given bitOffset
+    function bit(uint256 value, uint256 bitOffset) public pure returns (bool) {
         return (value >> bitOffset) & 1 == 1;
     }
 
-    function reverse(uint256 input) internal pure returns (uint256 v) {
+    /// @notice Reverses the bits of a 256-bit integer
+    function reverse(uint256 input) public pure returns (uint256 v) {
         v = input;
 
         // swap bytes

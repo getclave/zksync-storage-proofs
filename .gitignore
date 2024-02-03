@@ -1,6 +1,7 @@
 # Compiler files
-cache/
-out/
+**/cache/
+**/lib/
+**/out/
 
 # Ignores development broadcast logs
 !/broadcast
@@ -12,6 +13,3 @@ docs/
 
 # Dotenv file
 .env
-
-# Rust implementation
-original/
