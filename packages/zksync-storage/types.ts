@@ -10,6 +10,9 @@ export interface StoredBatchInfo {
     commitment: string;
 }
 
+/** Metadata of the batch passed to the contract */
+export type BatchMetadata = Omit<StoredBatchInfo, "batchHash">;
+
 /** Struct passed to contract by the sequencer for each batch */
 export interface CommitBatchInfo {
     batchNumber: bigint;
@@ -23,3 +26,12 @@ export interface CommitBatchInfo {
     systemLogs: string;
     totalL2ToL1Pubdata: Uint8Array;
 }
+
+export type StorageProof = {
+  account: string;
+  key: string;
+  proof: string;
+  value: string;
+  index: number;
+};
+
