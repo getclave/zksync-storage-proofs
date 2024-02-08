@@ -43,17 +43,15 @@ struct BatchMetadata {
 
 /// @notice Storage proof that proves a storage key-value pair is included in the batch
 struct StorageProof {
+    // Metadata of the batch
     BatchMetadata metadata;
-    bytes32[] path;
-    uint64 index;
-}
-
-/// @notice Storage proof request provided by the offchain resolver
-/// TODO: Check out Optinames' resolver
-struct StorageProofRequest {
+    // Account and key-value pair of its storage
     address account;
     uint256 key;
     bytes32 value;
+    // Proof path and leaf index
+    bytes32[] path;
+    uint64 index;
 }
 
 contract StorageProofVerifier {
@@ -66,16 +64,16 @@ contract StorageProofVerifier {
     }
 
     /// @notice Verifies the storage proof
-    function verify(StorageProofRequest memory _request, StorageProof memory _proof) external view returns (bool valid) {
+    function verify(StorageProof memory _proof) external view returns (bool valid) {
         // Fold the proof path to get hash of L2 state
         bytes32 l2BatchHash = smt.getRootHash(
             _proof.path, 
             TreeEntry({
-                key: _request.key,
-                value: _request.value,
+                key: _proof.key,
+                value: _proof.value,
                 leafIndex: _proof.index
             }), 
-            _request.account
+            _proof.account
         );
 
         // Build stored batch info and compute its hash
