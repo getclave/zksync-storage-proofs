@@ -27,11 +27,21 @@ export interface CommitBatchInfo {
     totalL2ToL1Pubdata: Uint8Array;
 }
 
-export type StorageProof = {
+/** Proof returned by zkSync RPC */
+export type RpcProof = {
   account: string;
   key: string;
-  proof: string;
+  path: Array<string>;
   value: string;
   index: number;
 };
+
+export type StorageProofBatch = {
+  metadata: BatchMetadata;
+  proofs: RpcProof[];
+}
+
+export type StorageProof = RpcProof & {
+  metadata: BatchMetadata;
+}
 
