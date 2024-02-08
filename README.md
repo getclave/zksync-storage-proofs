@@ -9,5 +9,5 @@ Generate and verify storage proofs on zkSync
   storage proofs
 
 ## Usage
-- [Javascript Library](packages/zksync-storage-proof/README.md)
+- [Typescript Library](packages/zksync-storage-proof/README.md)
 - [Solidity Library](packages/zksync-storage-contracts/README.md)
