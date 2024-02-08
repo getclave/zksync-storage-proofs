@@ -10,8 +10,6 @@ interface IZkSyncDiamond {
 }
 
 /// `StoredBatchInfo` struct declared in https://github.com/matter-labs/era-contracts/blob/main/l1-contracts/contracts/zksync/interfaces/IExecutor.sol
-/// @dev batchHash is omitted because it will be calculated from the proof
-///
 /// @notice Rollup batch stored data
 /// @param batchNumber Rollup batch number
 /// @param indexRepeatedStorageChanges The serial number of the shortcut index that's used as a unique identifier for storage keys that were used twice or more
@@ -20,6 +18,19 @@ interface IZkSyncDiamond {
 /// @param l2LogsTreeRoot Root hash of tree that contains L2 -> L1 messages from this batch
 /// @param timestamp Rollup batch timestamp, have the same format as Ethereum batch constant
 /// @param commitment Verified input for the zkSync circuit
+struct StoredBatchInfo {
+    uint64 batchNumber;
+    bytes32 batchHash;
+    uint64 indexRepeatedStorageChanges;
+    uint256 numberOfLayer1Txs;
+    bytes32 priorityOperationsHash;
+    bytes32 l2LogsTreeRoot;
+    uint256 timestamp;
+    bytes32 commitment;
+}
+
+/// @notice Metadata of the batch provided by the offchain resolver
+/// @dev batchHash is omitted because it will be calculated from the proof
 struct BatchMetadata {
     uint64 batchNumber;
     uint64 indexRepeatedStorageChanges;
@@ -33,11 +44,16 @@ struct BatchMetadata {
 /// @notice Storage proof that proves a storage key-value pair is included in the batch
 struct StorageProof {
     BatchMetadata metadata;
-    address account;
     bytes32[] path;
+    uint64 index;
+}
+
+/// @notice Storage proof request provided by the offchain resolver
+/// TODO: Check out Optinames' resolver
+struct StorageProofRequest {
+    address account;
     uint256 key;
     bytes32 value;
-    uint64 index;
 }
 
 contract StorageProofVerifier {
@@ -50,17 +66,38 @@ contract StorageProofVerifier {
     }
 
     /// @notice Verifies the storage proof
-    function verify(StorageProof calldata _proof) external view returns (bool valid) {
-        bytes32 computedRootHash = smt.getRootHash(
+    function verify(StorageProofRequest memory _request, StorageProof memory _proof) external view returns (bool valid) {
+        // Fold the proof path to get hash of L2 state
+        bytes32 l2BatchHash = smt.getRootHash(
             _proof.path, 
             TreeEntry({
-                key: _proof.key,
-                value: _proof.value,
+                key: _request.key,
+                value: _request.value,
                 leafIndex: _proof.index
             }), 
-            _proof.account
+            _request.account
         );
-        bytes32 storedRootHash = zksyncDiamondAddress.storedBatchHash(_proof.metadata.batchNumber);
-        valid = computedRootHash == storedRootHash;
+
+        // Build stored batch info and compute its hash
+        // batchHash of the StoredBatchInfo is computed from the proof
+        StoredBatchInfo memory batch = StoredBatchInfo({
+            batchNumber: _proof.metadata.batchNumber,
+            batchHash: l2BatchHash,
+            indexRepeatedStorageChanges: _proof.metadata.indexRepeatedStorageChanges,
+            numberOfLayer1Txs: _proof.metadata.numberOfLayer1Txs,
+            priorityOperationsHash: _proof.metadata.priorityOperationsHash,
+            l2LogsTreeRoot: _proof.metadata.l2LogsTreeRoot,
+            timestamp: _proof.metadata.timestamp,
+            commitment: _proof.metadata.commitment
+        });
+        bytes32 computedL1BatchHash = _hashStoredBatchInfo(batch);
+        bytes32 l1BatchHash = zksyncDiamondAddress.storedBatchHash(_proof.metadata.batchNumber);
+
+        valid = computedL1BatchHash == l1BatchHash;
+    }
+
+    /// @notice Returns the keccak hash of the ABI-encoded StoredBatchInfo
+    function _hashStoredBatchInfo(StoredBatchInfo memory _storedBatchInfo) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_storedBatchInfo));
     }
 }
