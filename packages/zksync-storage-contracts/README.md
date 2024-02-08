@@ -19,7 +19,7 @@ In order to verify a storage proof:
 
 > This takes around 60M gas so only call it inside view functions
 
-> Most of the time it will make sense to override `account`, `key` and `value`
+> Most of the time it will make sense to override `account`, `key`
 > fields to make sure proof is proving the correct content.
 
 ```solidity
@@ -35,14 +35,14 @@ contract MyProofVerifier {
     function checkProof(
         address account,
         uint256 key,
-        bytes32 value,
         StorageProof memory proof
     ) external view returns (bool) {
         proof.account = account;
         proof.key = key;
-        proof.value = value;
 
         return verifier.verify(proof);
     }
 }
 ```
+
+You can also check out the [demo](./src/demo/) for an example implementation
