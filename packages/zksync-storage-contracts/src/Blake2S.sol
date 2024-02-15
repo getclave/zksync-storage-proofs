@@ -148,18 +148,18 @@ library Blake2s {
      * @dev Updates the BLAKE2s context with new input data.
      * @param ctx The BLAKE2s context to update.
      * @param input The input data to be added to the hash computation.
+     * - 204320
+     * - 
      */
     function update(BLAKE2s_ctx memory ctx, bytes memory input) public pure {
-        for (uint i = 0; i < input.length; i++) {
+        uint256 inputLength = input.length;
+        for (uint i = 0; i < inputLength; ++i) {
             // If buffer is full, update byte counters and compress
             if (ctx.c == 64) {
                 // BLAKE2s block size is 64 bytes
                 ctx.t += ctx.c; // Increment counter t by the number of bytes in the buffer
                 compress(ctx, false);
 
-                //clear input buffer counter after compressing
-                ctx.b[0] = 0;
-                ctx.b[1] = 0;
                 //clear buffer counter after compressing
                 ctx.c = 0;
             }
@@ -192,7 +192,7 @@ library Blake2s {
      * the internal state with the result of the compression. If 'last' is true, it also performs
      * the necessary operations to finalize the hash, such as inverting the finalization flag.
      */
-    function compress(BLAKE2s_ctx memory ctx, bool last) private pure {
+    function compress(BLAKE2s_ctx memory ctx, bool last) public pure {
         uint32[16] memory v;
         uint32[16] memory m;
 
@@ -221,46 +221,166 @@ library Blake2s {
         }
 
         // Initialize m[0..15] with the bytes from the input buffer
-        for (uint i = 0; i < 16; i++) {
-            //input buffer ctx b is 2x32 bytes long; To fill the 16 words of m from the 64 bytes of ctx.b, We copt the first 8 byte from the first 32 bytes of ctx.b and the second 8 bytes from the second 32 bytes of ctx.b
-            //Execution would be reverting due to overflow caused by modulo 256, hence its unchecked
+        // for (uint i = 0; i < 16; i++) {
+        //     //input buffer ctx b is 2x32 bytes long; To fill the 16 words of m from the 64 bytes of ctx.b, We copt the first 8 byte from the first 32 bytes of ctx.b and the second 8 bytes from the second 32 bytes of ctx.b
+        //     //Execution would be reverting due to overflow caused by modulo 256, hence its unchecked
 
-            //The code in the comment below is the same as the code in the unchecked block but more readable
-            // uint256 bufferSlice = ctx.b[i / 8];
-            // uint offset = (256 - (((i + 1) * 32))) % 256;
-            // uint32 currentWord = uint32(bufferSlice >> offset);
-            unchecked {
-                m[i] = getWords32(
-                    uint32(ctx.b[i / 8] >> (256 - (((i + 1) * 32))) % 256)
-                );
-            }
+        //     //The code in the comment below is the same as the code in the unchecked block but more readable
+        //     // uint256 bufferSlice = ctx.b[i / 8];
+        //     // uint offset = (256 - (((i + 1) * 32))) % 256;
+        //     // uint32 currentWord = uint32(bufferSlice >> offset);
+        //     unchecked {
+        //         m[i] = getWords32(
+        //             uint32(ctx.b[i / 8] >> (256 - (((i + 1) * 32))) % 256)
+        //         );
+        //     }
+        // }
+        unchecked {
+            m[0] = getWords32(uint32(ctx.b[0] >> 224));
+            m[1] = getWords32(uint32(ctx.b[0] >> 192));
+            m[2] = getWords32(uint32(ctx.b[0] >> 160));
+            m[3] = getWords32(uint32(ctx.b[0] >> 128));
+            m[4] = getWords32(uint32(ctx.b[0] >> 96));
+            m[5] = getWords32(uint32(ctx.b[0] >> 64));
+            m[6] = getWords32(uint32(ctx.b[0] >> 32));
+            m[7] = getWords32(uint32(ctx.b[0]));
+            m[8] = getWords32(uint32(ctx.b[1] >> 224));
+            m[9] = getWords32(uint32(ctx.b[1] >> 192));
+            m[10] = getWords32(uint32(ctx.b[1] >> 160));
+            m[11] = getWords32(uint32(ctx.b[1] >> 128));
+            m[12] = getWords32(uint32(ctx.b[1] >> 96));
+            m[13] = getWords32(uint32(ctx.b[1] >> 64));
+            m[14] = getWords32(uint32(ctx.b[1] >> 32));
+            m[15] = getWords32(uint32(ctx.b[1]));
+
+            // // SIGMA Block according to rfc7693
+            // uint8[16][10] memory SIGMA = [
+            //     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+            //     [14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3],
+            //     [11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4],
+            //     [7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8],
+            //     [9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13],
+            //     [2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9],
+            //     [12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11],
+            //     [13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10],
+            //     [6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5],
+            //     [10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0]
+            // ];
+
+            // //call G function 10 times
+            // for (uint round = 0; round < 10; round++) {
+            //     G(v, 0, 4, 8, 12, m[SIGMA[round][0]], m[SIGMA[round][1]]);
+            //     G(v, 1, 5, 9, 13, m[SIGMA[round][2]], m[SIGMA[round][3]]);
+            //     G(v, 2, 6, 10, 14, m[SIGMA[round][4]], m[SIGMA[round][5]]);
+            //     G(v, 3, 7, 11, 15, m[SIGMA[round][6]], m[SIGMA[round][7]]);
+            //     G(v, 0, 5, 10, 15, m[SIGMA[round][8]], m[SIGMA[round][9]]);
+            //     G(v, 1, 6, 11, 12, m[SIGMA[round][10]], m[SIGMA[round][11]]);
+            //     G(v, 2, 7, 8, 13, m[SIGMA[round][12]], m[SIGMA[round][13]]);
+            //     G(v, 3, 4, 9, 14, m[SIGMA[round][14]], m[SIGMA[round][15]]);
+            // }
+            // Unrolled version of the loop above
+
+            // Round 0
+            G(v, 0, 4, 8, 12, m[0], m[1]);
+            G(v, 1, 5, 9, 13, m[2], m[3]);
+            G(v, 2, 6, 10, 14, m[4], m[5]);
+            G(v, 3, 7, 11, 15, m[6], m[7]);
+            G(v, 0, 5, 10, 15, m[8], m[9]);
+            G(v, 1, 6, 11, 12, m[10], m[11]);
+            G(v, 2, 7, 8, 13, m[12], m[13]);
+            G(v, 3, 4, 9, 14, m[14], m[15]);
+
+            // Round 1
+            G(v, 0, 4, 8, 12, m[14], m[10]);
+            G(v, 1, 5, 9, 13, m[4], m[8]);
+            G(v, 2, 6, 10, 14, m[9], m[15]);
+            G(v, 3, 7, 11, 15, m[13], m[6]);
+            G(v, 0, 5, 10, 15, m[1], m[12]);
+            G(v, 1, 6, 11, 12, m[0], m[2]);
+            G(v, 2, 7, 8, 13, m[11], m[7]);
+            G(v, 3, 4, 9, 14, m[5], m[3]);
+
+            // Round 2
+            G(v, 0, 4, 8, 12, m[11], m[8]);
+            G(v, 1, 5, 9, 13, m[12], m[0]);
+            G(v, 2, 6, 10, 14, m[5], m[2]);
+            G(v, 3, 7, 11, 15, m[15], m[13]);
+            G(v, 0, 5, 10, 15, m[10], m[14]);
+            G(v, 1, 6, 11, 12, m[3], m[6]);
+            G(v, 2, 7, 8, 13, m[7], m[1]);
+            G(v, 3, 4, 9, 14, m[9], m[4]);
+            
+            // Round 3
+            G(v, 0, 4, 8, 12, m[7], m[9]);
+            G(v, 1, 5, 9, 13, m[3], m[1]);
+            G(v, 2, 6, 10, 14, m[13], m[12]);
+            G(v, 3, 7, 11, 15, m[11], m[14]);
+            G(v, 0, 5, 10, 15, m[2], m[6]);
+            G(v, 1, 6, 11, 12, m[5], m[10]);
+            G(v, 2, 7, 8, 13, m[4], m[0]);
+            G(v, 3, 4, 9, 14, m[15], m[8]);
+
+            // Round 4
+            G(v, 0, 4, 8, 12, m[9], m[0]);
+            G(v, 1, 5, 9, 13, m[5], m[7]);
+            G(v, 2, 6, 10, 14, m[2], m[4]);
+            G(v, 3, 7, 11, 15, m[10], m[15]);
+            G(v, 0, 5, 10, 15, m[14], m[1]);
+            G(v, 1, 6, 11, 12, m[11], m[12]);
+            G(v, 2, 7, 8, 13, m[6], m[8]);
+            G(v, 3, 4, 9, 14, m[3], m[13]);
+
+            // Round 5
+            G(v, 0, 4, 8, 12, m[2], m[12]);
+            G(v, 1, 5, 9, 13, m[6], m[10]);
+            G(v, 2, 6, 10, 14, m[0], m[11]);
+            G(v, 3, 7, 11, 15, m[8], m[3]);
+            G(v, 0, 5, 10, 15, m[4], m[13]);
+            G(v, 1, 6, 11, 12, m[7], m[5]);
+            G(v, 2, 7, 8, 13, m[15], m[14]);
+            G(v, 3, 4, 9, 14, m[1], m[9]);
+
+            // Round 6
+            G(v, 0, 4, 8, 12, m[12], m[5]);
+            G(v, 1, 5, 9, 13, m[1], m[15]);
+            G(v, 2, 6, 10, 14, m[14], m[13]);
+            G(v, 3, 7, 11, 15, m[4], m[10]);
+            G(v, 0, 5, 10, 15, m[0], m[7]);
+            G(v, 1, 6, 11, 12, m[6], m[3]);
+            G(v, 2, 7, 8, 13, m[9], m[2]);
+            G(v, 3, 4, 9, 14, m[8], m[11]);
+
+            // Round 7
+            G(v, 0, 4, 8, 12, m[13], m[11]);
+            G(v, 1, 5, 9, 13, m[7], m[14]);
+            G(v, 2, 6, 10, 14, m[12], m[1]);
+            G(v, 3, 7, 11, 15, m[3], m[9]);
+            G(v, 0, 5, 10, 15, m[5], m[0]);
+            G(v, 1, 6, 11, 12, m[15], m[4]);
+            G(v, 2, 7, 8, 13, m[8], m[6]);
+            G(v, 3, 4, 9, 14, m[2], m[10]);
+
+            // Round 8
+            G(v, 0, 4, 8, 12, m[6], m[15]);
+            G(v, 1, 5, 9, 13, m[14], m[9]);
+            G(v, 2, 6, 10, 14, m[11], m[3]);
+            G(v, 3, 7, 11, 15, m[0], m[8]);
+            G(v, 0, 5, 10, 15, m[12], m[2]);
+            G(v, 1, 6, 11, 12, m[13], m[7]);
+            G(v, 2, 7, 8, 13, m[1], m[4]);
+            G(v, 3, 4, 9, 14, m[10], m[5]);
+
+            // Round 9
+            G(v, 0, 4, 8, 12, m[10], m[2]);
+            G(v, 1, 5, 9, 13, m[8], m[4]);
+            G(v, 2, 6, 10, 14, m[7], m[6]);
+            G(v, 3, 7, 11, 15, m[1], m[5]);
+            G(v, 0, 5, 10, 15, m[15], m[11]);
+            G(v, 1, 6, 11, 12, m[9], m[14]);
+            G(v, 2, 7, 8, 13, m[3], m[12]);
+            G(v, 3, 4, 9, 14, m[13], m[0]);
         }
 
-        // SIGMA Block according to rfc7693
-        uint8[16][10] memory SIGMA = [
-            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-            [14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3],
-            [11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4],
-            [7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8],
-            [9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13],
-            [2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9],
-            [12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11],
-            [13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10],
-            [6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5],
-            [10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0]
-        ];
-
-        //call G function 10 times
-        for (uint round = 0; round < 10; round++) {
-            G(v, 0, 4, 8, 12, m[SIGMA[round][0]], m[SIGMA[round][1]]);
-            G(v, 1, 5, 9, 13, m[SIGMA[round][2]], m[SIGMA[round][3]]);
-            G(v, 2, 6, 10, 14, m[SIGMA[round][4]], m[SIGMA[round][5]]);
-            G(v, 3, 7, 11, 15, m[SIGMA[round][6]], m[SIGMA[round][7]]);
-            G(v, 0, 5, 10, 15, m[SIGMA[round][8]], m[SIGMA[round][9]]);
-            G(v, 1, 6, 11, 12, m[SIGMA[round][10]], m[SIGMA[round][11]]);
-            G(v, 2, 7, 8, 13, m[SIGMA[round][12]], m[SIGMA[round][13]]);
-            G(v, 3, 4, 9, 14, m[SIGMA[round][14]], m[SIGMA[round][15]]);
-        }
 
         // Update the state with the result of the G mixing operations
         for (uint i = 0; i < 8; i++) {

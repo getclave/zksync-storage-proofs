@@ -12,6 +12,10 @@ contract SparseTest is Test {
         sparse = new SparseMerkleTree();
     }
 
+    function test_hash() public pure {
+        Blake2s.toBytes32(hex"deadbeef");
+    }
+
     function test_hashLeaf() public {
         TreeEntry memory entry = TreeEntry({
             key: 42366496704336254375416776462386343662429697233927452559041593589277704190797,
