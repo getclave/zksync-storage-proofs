@@ -193,8 +193,8 @@ library Blake2s {
      * the necessary operations to finalize the hash, such as inverting the finalization flag.
      */
     function compress(BLAKE2s_ctx memory ctx, bool last) public pure {
-        uint32[16] memory v;
         uint32[16] memory m;
+        uint32[16] memory v;
 
         // Initialize v[0..15]
         for (uint i = 0; i < 8; i++) {
@@ -236,22 +236,26 @@ library Blake2s {
         //     }
         // }
         unchecked {
-            m[0] = getWords32(uint32(ctx.b[0] >> 224));
-            m[1] = getWords32(uint32(ctx.b[0] >> 192));
-            m[2] = getWords32(uint32(ctx.b[0] >> 160));
-            m[3] = getWords32(uint32(ctx.b[0] >> 128));
-            m[4] = getWords32(uint32(ctx.b[0] >> 96));
-            m[5] = getWords32(uint32(ctx.b[0] >> 64));
-            m[6] = getWords32(uint32(ctx.b[0] >> 32));
-            m[7] = getWords32(uint32(ctx.b[0]));
-            m[8] = getWords32(uint32(ctx.b[1] >> 224));
-            m[9] = getWords32(uint32(ctx.b[1] >> 192));
-            m[10] = getWords32(uint32(ctx.b[1] >> 160));
-            m[11] = getWords32(uint32(ctx.b[1] >> 128));
-            m[12] = getWords32(uint32(ctx.b[1] >> 96));
-            m[13] = getWords32(uint32(ctx.b[1] >> 64));
-            m[14] = getWords32(uint32(ctx.b[1] >> 32));
-            m[15] = getWords32(uint32(ctx.b[1]));
+            uint256 b0 = ctx.b[0];
+            uint256 b1 = ctx.b[1];
+
+            // get words 32 (a) :  (a >> 24) | ((a >> 8) & 0x0000FF00) | ((a << 8) & 0x00FF0000) | (a << 24);
+            m[0] = getWords32(uint32(b0 >> 224));
+            m[1] = getWords32(uint32(b0 >> 192));
+            m[2] = getWords32(uint32(b0 >> 160));
+            m[3] = getWords32(uint32(b0 >> 128));
+            m[4] = getWords32(uint32(b0 >> 96));
+            m[5] = getWords32(uint32(b0 >> 64));
+            m[6] = getWords32(uint32(b0 >> 32));
+            m[7] = getWords32(uint32(b0));
+            m[8] = getWords32(uint32(b1 >> 224));
+            m[9] = getWords32(uint32(b1 >> 192));
+            m[10] = getWords32(uint32(b1 >> 160));
+            m[11] = getWords32(uint32(b1 >> 128));
+            m[12] = getWords32(uint32(b1 >> 96));
+            m[13] = getWords32(uint32(b1 >> 64));
+            m[14] = getWords32(uint32(b1 >> 32));
+            m[15] = getWords32(uint32(b1));
 
             // // SIGMA Block according to rfc7693
             // uint8[16][10] memory SIGMA = [
@@ -460,27 +464,13 @@ library Blake2s {
     ) private pure {
         unchecked {
             v[a] = v[a] + v[b] + x;
-            v[d] = ROTR32(v[d] ^ v[a], 16);
+            v[d] = ((v[d] ^ v[a]) >> 16) | ((v[d] ^ v[a]) << 16);
             v[c] = v[c] + v[d];
-            v[b] = ROTR32(v[b] ^ v[c], 12);
+            v[b] = ((v[b] ^ v[c]) >> 12) | ((v[b] ^ v[c]) << 20);
             v[a] = v[a] + v[b] + y;
-            v[d] = ROTR32(v[d] ^ v[a], 8);
+            v[d] = ((v[d] ^ v[a]) >> 8) | ((v[d] ^ v[a]) << 24);
             v[c] = v[c] + v[d];
-            v[b] = ROTR32(v[b] ^ v[c], 7);
+            v[b] = ((v[b] ^ v[c]) >> 7) | ((v[b] ^ v[c]) << 25);
         }
-    }
-
-    /**
-     * @dev Performs right rotation on a 32-bit word.
-     * @param x The 32-bit word to be rotated.
-     * @param n The number of bits to rotate by.
-     * @return The rotated 32-bit word.
-     *
-     * Right rotation is a bitwise operation that shifts all bits of a word to the right by a certain number of bits.
-     * Bits that are shifted off the end are wrapped around to the beginning. This is used in the G function as part
-     * of the mixing process.
-     */
-    function ROTR32(uint32 x, uint8 n) private pure returns (uint32) {
-        return (x >> n) | (x << (32 - n));
     }
 }
