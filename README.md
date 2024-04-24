@@ -3,11 +3,14 @@
 Generate and verify storage proofs on zkSync
 
 ## Packages
-- `@getclave/zksync-storage-proof`: Typescript library to generate and verify
-  zkSync storage proofs
-- `@getclave/zksync-storage-contracts`: Solidity contracts to verify zksync
-  storage proofs
 
-## Usage
-- [Typescript Library](packages/zksync-storage-proof/README.md)
-- [Solidity Library](packages/zksync-storage-contracts/README.md)
+This repo is divided up to Solidity and Typescript libraries for generating and
+validating the storage proof.
+
+## [@getclave/zksync-storage-proof](packages/zksync-storage-proof/)
+
+Typescript library to generate and verify zkSync storage proofs
+
+## [@getclave/zksync-storage-contracts](packages/zksync-storage-contracts/)
+
+Solidity contracts to verify zksync storage proofs

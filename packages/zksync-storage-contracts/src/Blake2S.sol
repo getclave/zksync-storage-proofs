@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-// https://github.com/AlexNi245/blake2s-solidity/blob/main/contracts/Blake2s.sol
+// https://github.com/AlexNi245/blake2s-solidity/blob/main/contracts/Blake2S.sol
 
 /**
- * @title Blake2s Hash Function for Solidity
+ * @title Blake2S Hash Function for Solidity
  * @notice This library implements the BLAKE2s cryptographic hash function within Solidity.
  *         BLAKE2s is optimized for 8- to 32-bit platforms and produces digests of any size
  *         between 1 and 32 bytes. For more details, see the BLAKE2 RFC at
  *         https://www.rfc-editor.org/rfc/rfc7693.txt.
  */
-library Blake2s {
+library Blake2S {
     uint32 public constant DEFAULT_OUTLEN = 32;
     bytes public constant DEFAULT_EMPTY_KEY = "";
 
@@ -25,9 +25,9 @@ library Blake2s {
     uint32 private constant IV7 = 0x5BE0CD19;
 
     /**
-     * @dev BLAKE2s context struct containing all necessary fields for the hash computation.
+     * @dev BLAKE2S context struct containing all necessary fields for the hash computation.
      */
-    struct BLAKE2s_ctx {
+    struct BLAKE2S_ctx {
         uint256[2] b; // Input buffer: 2 elements of 32 bytes each to make up 64 bytes
         uint32[8] h; // Chained state: 8 words of 32 bits each
         uint64 t; // Total number of bytes
@@ -63,7 +63,7 @@ library Blake2s {
     function toDigest(
         bytes memory input
     ) public pure returns (uint32[8] memory) {
-        BLAKE2s_ctx memory ctx;
+        BLAKE2S_ctx memory ctx;
         uint32[8] memory out;
         uint32[2] memory DEFAULT_EMPTY_INPUT;
         //Custom Keys or Output Size are not supported yet, primarily because they are not tested. However they can be added in the future
@@ -83,7 +83,7 @@ library Blake2s {
         bytes memory input1,
         bytes memory input2
     ) public pure returns (uint32[8] memory) {
-        BLAKE2s_ctx memory ctx;
+        BLAKE2S_ctx memory ctx;
         uint32[8] memory out;
         uint32[2] memory DEFAULT_EMPTY_INPUT;
         //Custom Keys or Output Size are not supported yet, primarily because they are not tested. However they can be added in the future
@@ -109,7 +109,7 @@ library Blake2s {
      * @param person The personalization input for personalizing the hash (exactly 2 uint32s).
      */
     function init(
-        BLAKE2s_ctx memory ctx,
+        BLAKE2S_ctx memory ctx,
         uint32 outlen,
         bytes memory key,
         uint32[2] memory salt,
@@ -151,7 +151,7 @@ library Blake2s {
      * - 204320
      * - 
      */
-    function update(BLAKE2s_ctx memory ctx, bytes memory input) public pure {
+    function update(BLAKE2S_ctx memory ctx, bytes memory input) public pure {
         uint256 inputLength = input.length;
         for (uint i = 0; i < inputLength; ++i) {
             // If buffer is full, update byte counters and compress
@@ -192,7 +192,7 @@ library Blake2s {
      * the internal state with the result of the compression. If 'last' is true, it also performs
      * the necessary operations to finalize the hash, such as inverting the finalization flag.
      */
-    function compress(BLAKE2s_ctx memory ctx, bool last) public pure {
+    function compress(BLAKE2S_ctx memory ctx, bool last) public pure {
         uint32[16] memory m;
         uint32[16] memory v;
 
@@ -406,7 +406,7 @@ library Blake2s {
      *    word in the output array to match the specified output length.
      */
     function finalize(
-        BLAKE2s_ctx memory ctx,
+        BLAKE2S_ctx memory ctx,
         uint32[8] memory out
     ) public pure {
         // Add any uncounted bytes

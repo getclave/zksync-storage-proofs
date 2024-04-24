@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
 import {SparseMerkleTree, TreeEntry, TREE_DEPTH} from "../src/SparseMerkleTree.sol";
-import {Blake2s} from "../src/Blake2s.sol";
+import {Blake2S} from "../src/Blake2S.sol";
 
 contract SparseTest is Test {
     SparseMerkleTree public sparse;
@@ -13,7 +13,7 @@ contract SparseTest is Test {
     }
 
     function test_hash() public pure {
-        Blake2s.toBytes32(hex"deadbeef");
+        Blake2S.toBytes32(hex"deadbeef");
     }
 
     function test_hashLeaf() public {

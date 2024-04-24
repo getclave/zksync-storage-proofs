@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {Blake2s} from "./Blake2s.sol";
+import {Blake2S} from "./Blake2S.sol";
 
 // Solidity port of zksync-era's Sparse Merkle Tree implementation
 // https://github.com/matter-labs/zksync-era/blob/main/core/lib/merkle_tree/src/hasher/mod.rs
@@ -321,7 +321,7 @@ contract SparseMerkleTree {
     }
 
     function hashBranch(bytes32 left, bytes32 right) public pure returns (bytes32 result) {
-        uint32[8] memory digest = Blake2s.toDigest(
+        uint32[8] memory digest = Blake2S.toDigest(
             abi.encodePacked(left),
             abi.encodePacked(right)
         );
@@ -345,7 +345,7 @@ contract SparseMerkleTree {
             // Store key starting at 32th byte
             mstore(add(input, 0x40), key)
         }
-        return Blake2s.toBytes32(input);
+        return Blake2S.toBytes32(input);
     }
 
     /// @notice Hashes an individual leaf
@@ -357,7 +357,7 @@ contract SparseMerkleTree {
             // Store value at last 32 bytes
             mstore(add(input, 0x28), value)
         }
-        return Blake2s.toBytes32(input);
+        return Blake2S.toBytes32(input);
     }
 
     /// @notice Returns the bit at the given bitOffset
