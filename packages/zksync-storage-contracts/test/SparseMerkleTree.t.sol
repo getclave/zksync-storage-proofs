@@ -12,8 +12,8 @@ contract SparseTest is Test {
         sparse = new SparseMerkleTree();
     }
 
-    function test_hash() public pure {
-        Blake2S.toBytes32(hex"deadbeef");
+    function test_hash() public view {
+        assertEq(Blake2S.toDigest(hex"deadbeef"), 0x2e746782fc5a2ada501c2e05a72c212d9d1b2219aa2ebd05dbd24b893fdb7c60);
     }
 
     function test_hashLeaf() public {

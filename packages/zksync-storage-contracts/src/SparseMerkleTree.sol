@@ -320,24 +320,15 @@ contract SparseMerkleTree {
         return result;
     }
 
-    function hashBranch(bytes32 left, bytes32 right) public pure returns (bytes32 result) {
-        uint32[8] memory digest = Blake2S.toDigest(
+    function hashBranch(bytes32 left, bytes32 right) public view returns (bytes32 result) {
+        return Blake2S.toDigest(
             abi.encodePacked(left),
             abi.encodePacked(right)
         );
-
-        // Loop through each 32-bit word in the digest array and construct a single bytes32 result.
-        // This is done by shifting each 32-bit word to its correct position in the 256-bit result
-        // and combining them using the bitwise OR operation.
-        for (uint256 i = 0; i < digest.length; i++) {
-            result = bytes32(
-                uint256(result) | (uint256(digest[i]) << (256 - ((i + 1) * 32)))
-            );
-        }
     }
 
     /// @notice Hashes the tree key
-    function hashKey(address account, uint256 key) public pure returns (bytes32) {
+    function hashKey(address account, uint256 key) public view returns (bytes32) {
         bytes memory input = new bytes(64);
         assembly {
             // Store account starting at 12th byte
@@ -345,11 +336,11 @@ contract SparseMerkleTree {
             // Store key starting at 32th byte
             mstore(add(input, 0x40), key)
         }
-        return Blake2S.toBytes32(input);
+        return Blake2S.toDigest(input);
     }
 
     /// @notice Hashes an individual leaf
-    function hashLeaf(uint64 leafIndex, bytes32 value) public pure returns (bytes32) {
+    function hashLeaf(uint64 leafIndex, bytes32 value) public view returns (bytes32) {
         bytes memory input = new bytes(40);
         assembly {
             // Store leafIndex at first 8 bytes
@@ -357,16 +348,16 @@ contract SparseMerkleTree {
             // Store value at last 32 bytes
             mstore(add(input, 0x28), value)
         }
-        return Blake2S.toBytes32(input);
+        return Blake2S.toDigest(input);
     }
 
     /// @notice Returns the bit at the given bitOffset
-    function bit(uint256 value, uint256 bitOffset) public pure returns (bool) {
+    function bit(uint256 value, uint256 bitOffset) public view returns (bool) {
         return (value >> bitOffset) & 1 == 1;
     }
 
     /// @notice Reverses the bits of a 256-bit integer
-    function reverse(uint256 input) public pure returns (uint256 v) {
+    function reverse(uint256 input) public view returns (uint256 v) {
         v = input;
 
         // swap bytes
