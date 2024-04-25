@@ -173,8 +173,9 @@ library Blake2S {
         uint256[16] memory v;
 
         // Initialize v[0..15]
-        for (uint i = 0; i < 8; i++) {
-            v[i] = ctx.h[i]; // First half from the state
+        assembly {
+            // memcpy ctx.h[:8] -> v[:8]
+            pop(staticcall(not(0), 0x4, mload(add(ctx, 32)), 256, v, 256))
         }
         // Second half from the IV
         v[8] = IV0;
@@ -196,22 +197,8 @@ library Blake2S {
             v[14] = (~v[14]) & 0xFFFFFFFF;
         }
 
-        // Initialize m[0..15] with the bytes from the input buffer
-        // for (uint i = 0; i < 16; i++) {
-        //     //input buffer ctx b is 2x32 bytes long; To fill the 16 words of m from the 64 bytes of ctx.b, We copt the first 8 byte from the first 32 bytes of ctx.b and the second 8 bytes from the second 32 bytes of ctx.b
-        //     //Execution would be reverting due to overflow caused by modulo 256, hence its unchecked
-
-        //     //The code in the comment below is the same as the code in the unchecked block but more readable
-        //     // uint256 bufferSlice = ctx.b[i / 8];
-        //     // uint offset = (256 - (((i + 1) * 32))) % 256;
-        //     // uint32 currentWord = uint32(bufferSlice >> offset);
-        //     unchecked {
-        //         m[i] = getWords32(
-        //             uint32(ctx.b[i / 8] >> (256 - (((i + 1) * 32))) % 256)
-        //         );
-        //     }
-        // }
         unchecked {
+            // Initialize b0 and b1 with the bytes from the input buffer, and swap their endianness
             uint256 b0 = ctx.b[0];
             uint256 b1 = ctx.b[1];
 
