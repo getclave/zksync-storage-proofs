@@ -293,27 +293,28 @@ contract SparseMerkleTree {
         TreeEntry memory entry,
         address account
     ) public view returns (bytes32) {
-        uint256 keyHash = reverse(uint256(hashKey(account, entry.key)));
+        Blake2S.BLAKE2S_ctx memory ctx;
+        uint256 keyHash = reverse(uint256(hashKey(ctx, account, entry.key)));
 
         uint256 emptyLen = TREE_DEPTH - proof.length;
-        bytes32 result = hashLeaf(entry.leafIndex, entry.value);
+        bytes32 result = hashLeaf(ctx, entry.leafIndex, entry.value);
 
         uint256 i = 0;
         for (; i < emptyLen; i++) {
             bytes32 adjacentHash = emptyTreeHashes_[i];
             if ((keyHash >> i) & 1 == 1) {
-                result = hashBranch(adjacentHash, result);
+                result = hashBranch(ctx, adjacentHash, result);
             } else {
-                result = hashBranch(result, adjacentHash);
+                result = hashBranch(ctx, result, adjacentHash);
             }
         }
 
         for (; i < TREE_DEPTH; i++) {
             bytes32 adjacentHash = proof[TREE_DEPTH - i - 1];
             if ((keyHash >> i) & 1 == 1) {
-                result = hashBranch(adjacentHash, result);
+                result = hashBranch(ctx, adjacentHash, result);
             } else {
-                result = hashBranch(result, adjacentHash);
+                result = hashBranch(ctx, result, adjacentHash);
             }
         }
 
@@ -321,14 +322,25 @@ contract SparseMerkleTree {
     }
 
     function hashBranch(bytes32 left, bytes32 right) public view returns (bytes32 result) {
-        return Blake2S.toDigest(
-            abi.encodePacked(left),
-            abi.encodePacked(right)
+        Blake2S.BLAKE2S_ctx memory ctx;
+        return hashBranch(ctx, left, right);
+    }
+    
+    function hashBranch(Blake2S.BLAKE2S_ctx memory ctx, bytes32 left, bytes32 right) internal view returns (bytes32 result) {
+        uint256[2] memory DEFAULT_EMPTY_INPUT;
+        Blake2S.init(
+            ctx,
+            32,
+            "",
+            DEFAULT_EMPTY_INPUT,
+            DEFAULT_EMPTY_INPUT
         );
+        Blake2S.update(ctx, abi.encodePacked(left, right));
+        return Blake2S.finalize(ctx);
     }
 
     /// @notice Hashes the tree key
-    function hashKey(address account, uint256 key) public view returns (bytes32) {
+    function hashKey(Blake2S.BLAKE2S_ctx memory ctx, address account, uint256 key) internal view returns (bytes32) {
         bytes memory input = new bytes(64);
         assembly {
             // Store account starting at 12th byte
@@ -336,11 +348,25 @@ contract SparseMerkleTree {
             // Store key starting at 32th byte
             mstore(add(input, 0x40), key)
         }
-        return Blake2S.toDigest(input);
+        uint256[2] memory DEFAULT_EMPTY_INPUT;
+        Blake2S.init(
+            ctx,
+            32,
+            "",
+            DEFAULT_EMPTY_INPUT,
+            DEFAULT_EMPTY_INPUT
+        );
+        Blake2S.update(ctx, input);
+        return Blake2S.finalize(ctx);
+    }
+
+    function hashLeaf(uint64 leafIndex, bytes32 value) public view returns (bytes32) {
+        Blake2S.BLAKE2S_ctx memory ctx;
+        return hashLeaf(ctx, leafIndex, value);
     }
 
     /// @notice Hashes an individual leaf
-    function hashLeaf(uint64 leafIndex, bytes32 value) public view returns (bytes32) {
+    function hashLeaf(Blake2S.BLAKE2S_ctx memory ctx, uint64 leafIndex, bytes32 value) internal view returns (bytes32) {
         bytes memory input = new bytes(40);
         assembly {
             // Store leafIndex at first 8 bytes
@@ -348,7 +374,16 @@ contract SparseMerkleTree {
             // Store value at last 32 bytes
             mstore(add(input, 0x28), value)
         }
-        return Blake2S.toDigest(input);
+        uint256[2] memory DEFAULT_EMPTY_INPUT;
+        Blake2S.init(
+            ctx,
+            32,
+            "",
+            DEFAULT_EMPTY_INPUT,
+            DEFAULT_EMPTY_INPUT
+        );
+        Blake2S.update(ctx, input);
+        return Blake2S.finalize(ctx);
     }
 
     /// @notice Returns the bit at the given bitOffset

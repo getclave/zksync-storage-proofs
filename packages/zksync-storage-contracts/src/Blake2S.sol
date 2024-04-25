@@ -90,8 +90,13 @@ library Blake2S {
         bytes memory key,
         uint256[2] memory salt,
         uint256[2] memory person
-    ) public view {
+    ) internal view {
         if (outlen == 0 || outlen > 32 || outlen % 4 != 0 || key.length > 32) revert("outlen");
+
+        ctx.b[0] = 0;
+        ctx.b[1] = 0;
+        ctx.t = 0;
+        ctx.c = 0;
 
         // Initialize chained-state to IV
         //I think it's more gas efficient to assign the values directly to the array instead of assigning them one by one
@@ -127,7 +132,7 @@ library Blake2S {
      * - 204320
      * - 
      */
-    function update(BLAKE2S_ctx memory ctx, bytes memory input) public view {
+    function update(BLAKE2S_ctx memory ctx, bytes memory input) internal view {
         unchecked {
             uint256 inputLength = uint32(input.length);
             uint256 c = ctx.c;
@@ -169,7 +174,7 @@ library Blake2S {
      * the internal state with the result of the compression. If 'last' is true, it also performs
      * the necessary operations to finalize the hash, such as inverting the finalization flag.
      */
-    function compress(BLAKE2S_ctx memory ctx, bool last) public view {
+    function compress(BLAKE2S_ctx memory ctx, bool last) internal view {
         uint256[16] memory v;
 
         // Initialize v[0..15]
@@ -396,7 +401,7 @@ library Blake2S {
      */
     function finalize(
         BLAKE2S_ctx memory ctx
-    ) public view returns(bytes32 out) {
+    ) internal view returns(bytes32 out) {
         unchecked {
             // Add any uncounted bytes
             ctx.t += ctx.c;
