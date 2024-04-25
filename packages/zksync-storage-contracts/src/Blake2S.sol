@@ -261,105 +261,139 @@ library Blake2S {
             // }
             // Unrolled version of the loop above
 
-            // Round 0
-            G(v, 0, 4, 8, 12, m[0], m[1]);
-            G(v, 1, 5, 9, 13, m[2], m[3]);
-            G(v, 2, 6, 10, 14, m[4], m[5]);
-            G(v, 3, 7, 11, 15, m[6], m[7]);
-            G(v, 0, 5, 10, 15, m[8], m[9]);
-            G(v, 1, 6, 11, 12, m[10], m[11]);
-            G(v, 2, 7, 8, 13, m[12], m[13]);
-            G(v, 3, 4, 9, 14, m[14], m[15]);
+            assembly {
+                /**
+                * @dev Performs the BLAKE2s mixing function 'G' as defined in the BLAKE2 specification.
+                * @param v The working vector which is being mixed.
+                * @param a Index of the first element in the working vector to mix.
+                * @param b Index of the second element in the working vector to mix.
+                * @param c Index of the third element in the working vector to mix.
+                * @param d Index of the fourth element in the working vector to mix.
+                * @param x The first input word to the mixing function.
+                * @param y The second input word to the mixing function.
+                *
+                * This function updates the working vector 'v' with the results of the mixing operations.
+                * It is a core part of the compression function, which is in turn a core part of the BLAKE2s hash function.
+                */
+                function G(z, a, b, c, d, x, y) {
+                    // v[a] = (v[a] + v[b] + x) & 0xFFFFFFFF;
+                    mstore(add(z, a), and(add(add(mload(add(z, a)), mload(add(z, b))), x), 0xFFFFFFFF))
+                    // v[d] = (((v[d] ^ v[a]) >> 16) | ((v[d] ^ v[a]) << 16)) & 0xFFFFFFFF;
+                    mstore(add(z, d), and(or(shr(16, xor(mload(add(z, d)), mload(add(z, a)))), shl(16, xor(mload(add(z, d)), mload(add(z, a))))), 0xFFFFFFFF))
+                    // v[c] = (v[c] + v[d]) & 0xFFFFFFFF;
+                    mstore(add(z, c), and(add(mload(add(z, c)), mload(add(z, d))), 0xFFFFFFFF))
+                    // v[b] = (((v[b] ^ v[c]) >> 12) | ((v[b] ^ v[c]) << 20)) & 0xFFFFFFFF;
+                    mstore(add(z, b), and(or(shr(12, xor(mload(add(z, b)), mload(add(z, c)))), shl(20, xor(mload(add(z, b)), mload(add(z, c))))), 0xFFFFFFFF))
+                    // v[a] = (v[a] + v[b] + y) & 0xFFFFFFFF;
+                    mstore(add(z, a), and(add(add(mload(add(z, a)), mload(add(z, b))), y), 0xFFFFFFFF))
+                    // v[d] = (((v[d] ^ v[a]) >> 8) | ((v[d] ^ v[a]) << 24)) & 0xFFFFFFFF;
+                    mstore(add(z, d), and(or(shr(8, xor(mload(add(z, d)), mload(add(z, a)))), shl(24, xor(mload(add(z, d)), mload(add(z, a))))), 0xFFFFFFFF))
+                    // v[c] = (v[c] + v[d]) & 0xFFFFFFFF;
+                    mstore(add(z, c), and(add(mload(add(z, c)), mload(add(z, d))), 0xFFFFFFFF))
+                    // v[b] = (((v[b] ^ v[c]) >> 7) | ((v[b] ^ v[c]) << 25)) & 0xFFFFFFFF;
+                    mstore(add(z, b), and(or(shr(7, xor(mload(add(z, b)), mload(add(z, c)))), shl(25, xor(mload(add(z, b)), mload(add(z, c))))), 0xFFFFFFFF))
+                }
 
-            // Round 1
-            G(v, 0, 4, 8, 12, m[14], m[10]);
-            G(v, 1, 5, 9, 13, m[4], m[8]);
-            G(v, 2, 6, 10, 14, m[9], m[15]);
-            G(v, 3, 7, 11, 15, m[13], m[6]);
-            G(v, 0, 5, 10, 15, m[1], m[12]);
-            G(v, 1, 6, 11, 12, m[0], m[2]);
-            G(v, 2, 7, 8, 13, m[11], m[7]);
-            G(v, 3, 4, 9, 14, m[5], m[3]);
+                // Round 0
+                G(v, 0, 128, 256, 384, mload(add(m, 0)), mload(add(m, 32)))
+                G(v, 32, 160, 288, 416, mload(add(m, 64)), mload(add(m, 96)))
+                G(v, 64, 192, 320, 448, mload(add(m, 128)), mload(add(m, 160)))
+                G(v, 96, 224, 352, 480, mload(add(m, 192)), mload(add(m, 224)))
+                G(v, 0, 160, 320, 480, mload(add(m, 256)), mload(add(m, 288)))
+                G(v, 32, 192, 352, 384, mload(add(m, 320)), mload(add(m, 352)))
+                G(v, 64, 224, 256, 416, mload(add(m, 384)), mload(add(m, 416)))
+                G(v, 96, 128, 288, 448, mload(add(m, 448)), mload(add(m, 480)))
 
-            // Round 2
-            G(v, 0, 4, 8, 12, m[11], m[8]);
-            G(v, 1, 5, 9, 13, m[12], m[0]);
-            G(v, 2, 6, 10, 14, m[5], m[2]);
-            G(v, 3, 7, 11, 15, m[15], m[13]);
-            G(v, 0, 5, 10, 15, m[10], m[14]);
-            G(v, 1, 6, 11, 12, m[3], m[6]);
-            G(v, 2, 7, 8, 13, m[7], m[1]);
-            G(v, 3, 4, 9, 14, m[9], m[4]);
-            
-            // Round 3
-            G(v, 0, 4, 8, 12, m[7], m[9]);
-            G(v, 1, 5, 9, 13, m[3], m[1]);
-            G(v, 2, 6, 10, 14, m[13], m[12]);
-            G(v, 3, 7, 11, 15, m[11], m[14]);
-            G(v, 0, 5, 10, 15, m[2], m[6]);
-            G(v, 1, 6, 11, 12, m[5], m[10]);
-            G(v, 2, 7, 8, 13, m[4], m[0]);
-            G(v, 3, 4, 9, 14, m[15], m[8]);
+                // Round 1
+                G(v, 0, 128, 256, 384, mload(add(m, 448)), mload(add(m, 320)))
+                G(v, 32, 160, 288, 416, mload(add(m, 128)), mload(add(m, 256)))
+                G(v, 64, 192, 320, 448, mload(add(m, 288)), mload(add(m, 480)))
+                G(v, 96, 224, 352, 480, mload(add(m, 416)), mload(add(m, 192)))
+                G(v, 0, 160, 320, 480, mload(add(m, 32)), mload(add(m, 384)))
+                G(v, 32, 192, 352, 384, mload(add(m, 0)), mload(add(m, 64)))
+                G(v, 64, 224, 256, 416, mload(add(m, 352)), mload(add(m, 224)))
+                G(v, 96, 128, 288, 448, mload(add(m, 160)), mload(add(m, 96)))
 
-            // Round 4
-            G(v, 0, 4, 8, 12, m[9], m[0]);
-            G(v, 1, 5, 9, 13, m[5], m[7]);
-            G(v, 2, 6, 10, 14, m[2], m[4]);
-            G(v, 3, 7, 11, 15, m[10], m[15]);
-            G(v, 0, 5, 10, 15, m[14], m[1]);
-            G(v, 1, 6, 11, 12, m[11], m[12]);
-            G(v, 2, 7, 8, 13, m[6], m[8]);
-            G(v, 3, 4, 9, 14, m[3], m[13]);
+                // Round 2
+                G(v, 0, 128, 256, 384, mload(add(m, 352)), mload(add(m, 256)))
+                G(v, 32, 160, 288, 416, mload(add(m, 384)), mload(add(m, 0)))
+                G(v, 64, 192, 320, 448, mload(add(m, 160)), mload(add(m, 64)))
+                G(v, 96, 224, 352, 480, mload(add(m, 480)), mload(add(m, 416)))
+                G(v, 0, 160, 320, 480, mload(add(m, 320)), mload(add(m, 448)))
+                G(v, 32, 192, 352, 384, mload(add(m, 96)), mload(add(m, 192)))
+                G(v, 64, 224, 256, 416, mload(add(m, 224)), mload(add(m, 32)))
+                G(v, 96, 128, 288, 448, mload(add(m, 288)), mload(add(m, 128)))
+                
+                // Round 3
+                G(v, 0, 128, 256, 384, mload(add(m, 224)), mload(add(m, 288)))
+                G(v, 32, 160, 288, 416, mload(add(m, 96)), mload(add(m, 32)))
+                G(v, 64, 192, 320, 448, mload(add(m, 416)), mload(add(m, 384)))
+                G(v, 96, 224, 352, 480, mload(add(m, 352)), mload(add(m, 448)))
+                G(v, 0, 160, 320, 480, mload(add(m, 64)), mload(add(m, 192)))
+                G(v, 32, 192, 352, 384, mload(add(m, 160)), mload(add(m, 320)))
+                G(v, 64, 224, 256, 416, mload(add(m, 128)), mload(add(m, 0)))
+                G(v, 96, 128, 288, 448, mload(add(m, 480)), mload(add(m, 256)))
 
-            // Round 5
-            G(v, 0, 4, 8, 12, m[2], m[12]);
-            G(v, 1, 5, 9, 13, m[6], m[10]);
-            G(v, 2, 6, 10, 14, m[0], m[11]);
-            G(v, 3, 7, 11, 15, m[8], m[3]);
-            G(v, 0, 5, 10, 15, m[4], m[13]);
-            G(v, 1, 6, 11, 12, m[7], m[5]);
-            G(v, 2, 7, 8, 13, m[15], m[14]);
-            G(v, 3, 4, 9, 14, m[1], m[9]);
+                // Round 4
+                G(v, 0, 128, 256, 384, mload(add(m, 288)), mload(add(m, 0)))
+                G(v, 32, 160, 288, 416, mload(add(m, 160)), mload(add(m, 224)))
+                G(v, 64, 192, 320, 448, mload(add(m, 64)), mload(add(m, 128)))
+                G(v, 96, 224, 352, 480, mload(add(m, 320)), mload(add(m, 480)))
+                G(v, 0, 160, 320, 480, mload(add(m, 448)), mload(add(m, 32)))
+                G(v, 32, 192, 352, 384, mload(add(m, 352)), mload(add(m, 384)))
+                G(v, 64, 224, 256, 416, mload(add(m, 192)), mload(add(m, 256)))
+                G(v, 96, 128, 288, 448, mload(add(m, 96)), mload(add(m, 416)))
 
-            // Round 6
-            G(v, 0, 4, 8, 12, m[12], m[5]);
-            G(v, 1, 5, 9, 13, m[1], m[15]);
-            G(v, 2, 6, 10, 14, m[14], m[13]);
-            G(v, 3, 7, 11, 15, m[4], m[10]);
-            G(v, 0, 5, 10, 15, m[0], m[7]);
-            G(v, 1, 6, 11, 12, m[6], m[3]);
-            G(v, 2, 7, 8, 13, m[9], m[2]);
-            G(v, 3, 4, 9, 14, m[8], m[11]);
+                // Round 5
+                G(v, 0, 128, 256, 384, mload(add(m, 64)), mload(add(m, 384)))
+                G(v, 32, 160, 288, 416, mload(add(m, 192)), mload(add(m, 320)))
+                G(v, 64, 192, 320, 448, mload(add(m, 0)), mload(add(m, 352)))
+                G(v, 96, 224, 352, 480, mload(add(m, 256)), mload(add(m, 96)))
+                G(v, 0, 160, 320, 480, mload(add(m, 128)), mload(add(m, 416)))
+                G(v, 32, 192, 352, 384, mload(add(m, 224)), mload(add(m, 160)))
+                G(v, 64, 224, 256, 416, mload(add(m, 480)), mload(add(m, 448)))
+                G(v, 96, 128, 288, 448, mload(add(m, 32)), mload(add(m, 288)))
 
-            // Round 7
-            G(v, 0, 4, 8, 12, m[13], m[11]);
-            G(v, 1, 5, 9, 13, m[7], m[14]);
-            G(v, 2, 6, 10, 14, m[12], m[1]);
-            G(v, 3, 7, 11, 15, m[3], m[9]);
-            G(v, 0, 5, 10, 15, m[5], m[0]);
-            G(v, 1, 6, 11, 12, m[15], m[4]);
-            G(v, 2, 7, 8, 13, m[8], m[6]);
-            G(v, 3, 4, 9, 14, m[2], m[10]);
+                // Round 6
+                G(v, 0, 128, 256, 384, mload(add(m, 384)), mload(add(m, 160)))
+                G(v, 32, 160, 288, 416, mload(add(m, 32)), mload(add(m, 480)))
+                G(v, 64, 192, 320, 448, mload(add(m, 448)), mload(add(m, 416)))
+                G(v, 96, 224, 352, 480, mload(add(m, 128)), mload(add(m, 320)))
+                G(v, 0, 160, 320, 480, mload(add(m, 0)), mload(add(m, 224)))
+                G(v, 32, 192, 352, 384, mload(add(m, 192)), mload(add(m, 96)))
+                G(v, 64, 224, 256, 416, mload(add(m, 288)), mload(add(m, 64)))
+                G(v, 96, 128, 288, 448, mload(add(m, 256)), mload(add(m, 352)))
 
-            // Round 8
-            G(v, 0, 4, 8, 12, m[6], m[15]);
-            G(v, 1, 5, 9, 13, m[14], m[9]);
-            G(v, 2, 6, 10, 14, m[11], m[3]);
-            G(v, 3, 7, 11, 15, m[0], m[8]);
-            G(v, 0, 5, 10, 15, m[12], m[2]);
-            G(v, 1, 6, 11, 12, m[13], m[7]);
-            G(v, 2, 7, 8, 13, m[1], m[4]);
-            G(v, 3, 4, 9, 14, m[10], m[5]);
+                // Round 7
+                G(v, 0, 128, 256, 384, mload(add(m, 416)), mload(add(m, 352)))
+                G(v, 32, 160, 288, 416, mload(add(m, 224)), mload(add(m, 448)))
+                G(v, 64, 192, 320, 448, mload(add(m, 384)), mload(add(m, 32)))
+                G(v, 96, 224, 352, 480, mload(add(m, 96)), mload(add(m, 288)))
+                G(v, 0, 160, 320, 480, mload(add(m, 160)), mload(add(m, 0)))
+                G(v, 32, 192, 352, 384, mload(add(m, 480)), mload(add(m, 128)))
+                G(v, 64, 224, 256, 416, mload(add(m, 256)), mload(add(m, 192)))
+                G(v, 96, 128, 288, 448, mload(add(m, 64)), mload(add(m, 320)))
 
-            // Round 9
-            G(v, 0, 4, 8, 12, m[10], m[2]);
-            G(v, 1, 5, 9, 13, m[8], m[4]);
-            G(v, 2, 6, 10, 14, m[7], m[6]);
-            G(v, 3, 7, 11, 15, m[1], m[5]);
-            G(v, 0, 5, 10, 15, m[15], m[11]);
-            G(v, 1, 6, 11, 12, m[9], m[14]);
-            G(v, 2, 7, 8, 13, m[3], m[12]);
-            G(v, 3, 4, 9, 14, m[13], m[0]);
+                // Round 8
+                G(v, 0, 128, 256, 384, mload(add(m, 192)), mload(add(m, 480)))
+                G(v, 32, 160, 288, 416, mload(add(m, 448)), mload(add(m, 288)))
+                G(v, 64, 192, 320, 448, mload(add(m, 352)), mload(add(m, 96)))
+                G(v, 96, 224, 352, 480, mload(add(m, 0)), mload(add(m, 256)))
+                G(v, 0, 160, 320, 480, mload(add(m, 384)), mload(add(m, 64)))
+                G(v, 32, 192, 352, 384, mload(add(m, 416)), mload(add(m, 224)))
+                G(v, 64, 224, 256, 416, mload(add(m, 32)), mload(add(m, 128)))
+                G(v, 96, 128, 288, 448, mload(add(m, 320)), mload(add(m, 160)))
+
+                // Round 9
+                G(v, 0, 128, 256, 384, mload(add(m, 320)), mload(add(m, 64)))
+                G(v, 32, 160, 288, 416, mload(add(m, 256)), mload(add(m, 128)))
+                G(v, 64, 192, 320, 448, mload(add(m, 224)), mload(add(m, 192)))
+                G(v, 96, 224, 352, 480, mload(add(m, 32)), mload(add(m, 160)))
+                G(v, 0, 160, 320, 480, mload(add(m, 480)), mload(add(m, 352)))
+                G(v, 32, 192, 352, 384, mload(add(m, 288)), mload(add(m, 448)))
+                G(v, 64, 224, 256, 416, mload(add(m, 96)), mload(add(m, 384)))
+                G(v, 96, 128, 288, 448, mload(add(m, 416)), mload(add(m, 0)))
+            }
         }
 
 
@@ -410,39 +444,5 @@ library Blake2S {
             ((a >> 8) & 0x0000FF00) |
             ((a << 8) & 0x00FF0000) |
             ((a << 24) & 0xFF000000);
-    }
-
-    /**
-     * @dev Performs the BLAKE2s mixing function 'G' as defined in the BLAKE2 specification.
-     * @param v The working vector which is being mixed.
-     * @param a Index of the first element in the working vector to mix.
-     * @param b Index of the second element in the working vector to mix.
-     * @param c Index of the third element in the working vector to mix.
-     * @param d Index of the fourth element in the working vector to mix.
-     * @param x The first input word to the mixing function.
-     * @param y The second input word to the mixing function.
-     *
-     * This function updates the working vector 'v' with the results of the mixing operations.
-     * It is a core part of the compression function, which is in turn a core part of the BLAKE2s hash function.
-     */
-    function G(
-        uint256[16] memory v,
-        uint256 a,
-        uint256 b,
-        uint256 c,
-        uint256 d,
-        uint256 x,
-        uint256 y
-    ) private view {
-        unchecked {
-            v[a] = (v[a] + v[b] + x) & 0xFFFFFFFF;
-            v[d] = (((v[d] ^ v[a]) >> 16) | ((v[d] ^ v[a]) << 16)) & 0xFFFFFFFF;
-            v[c] = (v[c] + v[d]) & 0xFFFFFFFF;
-            v[b] = (((v[b] ^ v[c]) >> 12) | ((v[b] ^ v[c]) << 20)) & 0xFFFFFFFF;
-            v[a] = (v[a] + v[b] + y) & 0xFFFFFFFF;
-            v[d] = (((v[d] ^ v[a]) >> 8) | ((v[d] ^ v[a]) << 24)) & 0xFFFFFFFF;
-            v[c] = (v[c] + v[d]) & 0xFFFFFFFF;
-            v[b] = (((v[b] ^ v[c]) >> 7) | ((v[b] ^ v[c]) << 25)) & 0xFFFFFFFF;
-        }
     }
 }
