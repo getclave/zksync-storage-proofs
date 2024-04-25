@@ -11,7 +11,7 @@ pragma solidity ^0.8.13;
  *         https://www.rfc-editor.org/rfc/rfc7693.txt.
  */
 library Blake2S {
-    uint32 public constant DEFAULT_OUTLEN = 32;
+    uint256 public constant DEFAULT_OUTLEN = 32;
     bytes public constant DEFAULT_EMPTY_KEY = "";
 
     // Initialization Vector constants as defined in the BLAKE2 RFC
@@ -29,30 +29,10 @@ library Blake2S {
      */
     struct BLAKE2S_ctx {
         uint256[2] b; // Input buffer: 2 elements of 32 bytes each to make up 64 bytes
-        uint32[8] h; // Chained state: 8 words of 32 bits each
-        uint64 t; // Total number of bytes
-        uint32 c; // Counter for buffer, indicates how much is filled
-        uint32 outlen; // Digest output size
-    }
-
-    /**
-     * @dev Converts a bytes input to a fixed-size 32-byte blake2s-hash.
-     * @param input The input data to hash.
-     * @return result The resulting 32-byte hash.
-     */
-    function toBytes32(
-        bytes memory input
-    ) public pure returns (bytes32 result) {
-        uint32[8] memory digest = toDigest(input);
-
-        // Loop through each 32-bit word in the digest array and construct a single bytes32 result.
-        // This is done by shifting each 32-bit word to its correct position in the 256-bit result
-        // and combining them using the bitwise OR operation.
-        for (uint i = 0; i < digest.length; i++) {
-            result = bytes32(
-                uint256(result) | (uint256(digest[i]) << (256 - ((i + 1) * 32)))
-            );
-        }
+        uint256[8] h; // Chained state: 8 words of 32 bits each
+        uint256 t; // Total number of bytes
+        uint256 c; // Counter for buffer, indicates how much is filled
+        uint256 outlen; // Digest output size
     }
 
     /**
@@ -62,10 +42,9 @@ library Blake2S {
      */
     function toDigest(
         bytes memory input
-    ) public pure returns (uint32[8] memory) {
+    ) public view returns (bytes32) {
         BLAKE2S_ctx memory ctx;
-        uint32[8] memory out;
-        uint32[2] memory DEFAULT_EMPTY_INPUT;
+        uint256[2] memory DEFAULT_EMPTY_INPUT;
         //Custom Keys or Output Size are not supported yet, primarily because they are not tested. However they can be added in the future
         init(
             ctx,
@@ -75,17 +54,15 @@ library Blake2S {
             DEFAULT_EMPTY_INPUT
         );
         update(ctx, input);
-        finalize(ctx, out);
-        return out;
+        return finalize(ctx);
     }
 
     function toDigest(
         bytes memory input1,
         bytes memory input2
-    ) public pure returns (uint32[8] memory) {
+    ) public view returns (bytes32) {
         BLAKE2S_ctx memory ctx;
-        uint32[8] memory out;
-        uint32[2] memory DEFAULT_EMPTY_INPUT;
+        uint256[2] memory DEFAULT_EMPTY_INPUT;
         //Custom Keys or Output Size are not supported yet, primarily because they are not tested. However they can be added in the future
         init(
             ctx,
@@ -96,8 +73,7 @@ library Blake2S {
         );
         update(ctx, input1);
         update(ctx, input2);
-        finalize(ctx, out);
-        return out;
+        return finalize(ctx);
     }
 
     /**
@@ -110,12 +86,12 @@ library Blake2S {
      */
     function init(
         BLAKE2S_ctx memory ctx,
-        uint32 outlen,
+        uint256 outlen,
         bytes memory key,
-        uint32[2] memory salt,
-        uint32[2] memory person
-    ) public pure {
-        if (outlen == 0 || outlen > 32 || key.length > 32) revert("outlen");
+        uint256[2] memory salt,
+        uint256[2] memory person
+    ) public view {
+        if (outlen == 0 || outlen > 32 || outlen % 4 != 0 || key.length > 32) revert("outlen");
 
         // Initialize chained-state to IV
         //I think it's more gas efficient to assign the values directly to the array instead of assigning them one by one
@@ -151,35 +127,36 @@ library Blake2S {
      * - 204320
      * - 
      */
-    function update(BLAKE2S_ctx memory ctx, bytes memory input) public pure {
-        uint256 inputLength = input.length;
-        for (uint i = 0; i < inputLength; ++i) {
-            // If buffer is full, update byte counters and compress
-            if (ctx.c == 64) {
-                // BLAKE2s block size is 64 bytes
-                ctx.t += ctx.c; // Increment counter t by the number of bytes in the buffer
-                compress(ctx, false);
+    function update(BLAKE2S_ctx memory ctx, bytes memory input) public view {
+        unchecked {
+            uint256 inputLength = uint32(input.length);
+            uint256 c = ctx.c;
+            for (uint256 i = 0; i < inputLength;) {
+                // If buffer is full, update byte counters and compress
+                if (c == 64) {
+                    // BLAKE2s block size is 64 bytes
+                    ctx.t += c; // Increment counter t by the number of bytes in the buffer
+                    compress(ctx, false);
 
-                //clear buffer counter after compressing
-                ctx.c = 0;
+                    //clear buffer counter after compressing
+                    c = 0;
+                }
+
+                uint256 size = min(inputLength - i, 64 - c);
+                assembly {
+                    // Memcpy
+                    pop(staticcall(not(0), 0x4, add(add(input, 32), i), size, add(mload(ctx), c), size))
+                }
+                c += size;
+                i += size;
             }
-
-            //Assign the char from input to the buffer
-            //Assembly function corrospends to the following code
-            //  uint c = ctx.c;
-            //  uint[2] memory b = ctx.b;
-            //  uint8 a = uint8(input[i]);
-            //  b[c] =a;F
-            assembly {
-                mstore8(
-                    add(mload(add(ctx, 0)), mload(add(ctx, 0x60))),
-                    shr(248, mload(add(input, add(0x20, i))))
-                )
-            }
-
-            //After we assign the char to the buffer, we need to increment the buffer count
-            ctx.c++;
+            ctx.c = c;
         }
+    }
+
+    function min(uint256 a, uint256 b) internal view returns(uint256) {
+        if(a < b) return a;
+        return b;
     }
 
     /**
@@ -192,9 +169,9 @@ library Blake2S {
      * the internal state with the result of the compression. If 'last' is true, it also performs
      * the necessary operations to finalize the hash, such as inverting the finalization flag.
      */
-    function compress(BLAKE2S_ctx memory ctx, bool last) public pure {
-        uint32[16] memory m;
-        uint32[16] memory v;
+    function compress(BLAKE2S_ctx memory ctx, bool last) public view {
+        uint256[16] memory m;
+        uint256[16] memory v;
 
         // Initialize v[0..15]
         for (uint i = 0; i < 8; i++) {
@@ -211,13 +188,13 @@ library Blake2S {
         v[15] = IV7;
 
         // Low 64 bits of t
-        v[12] = v[12] ^ uint32(ctx.t & 0xFFFFFFFF);
+        v[12] = (v[12] ^ uint32(ctx.t & 0xFFFFFFFF)) & 0xFFFFFFFF;
         // High 64 bits of t (BLAKE2s uses only 32 bits for t[1], so this is often zeroed)
-        v[13] = v[13] ^ uint32(ctx.t >> 32);
+        v[13] = (v[13] ^ uint32(ctx.t >> 32)) & 0xFFFFFFFF;
 
         // Set the last block flag if this is the last block
         if (last) {
-            v[14] = ~v[14];
+            v[14] = (~v[14]) & 0xFFFFFFFF;
         }
 
         // Initialize m[0..15] with the bytes from the input buffer
@@ -406,24 +383,19 @@ library Blake2S {
      *    word in the output array to match the specified output length.
      */
     function finalize(
-        BLAKE2S_ctx memory ctx,
-        uint32[8] memory out
-    ) public pure {
-        // Add any uncounted bytes
-        ctx.t += ctx.c;
+        BLAKE2S_ctx memory ctx
+    ) public view returns(bytes32 out) {
+        unchecked {
+            // Add any uncounted bytes
+            ctx.t += ctx.c;
 
-        // Compress with finalization flag
-        compress(ctx, true);
+            // Compress with finalization flag
+            compress(ctx, true);
 
-        // Flip little to big endian and store in output buffer
-        for (uint i = 0; i < ctx.outlen / 4; i++) {
-            out[i] = getWords32(ctx.h[i]);
-        }
-        // Properly pad output if it doesn't fill a full word
-        if (ctx.outlen % 4 != 0) {
-            out[ctx.outlen / 4] =
-                getWords32(ctx.h[ctx.outlen / 4]) >>
-                (32 - 8 * (ctx.outlen % 4));
+            // Flip little to big endian and store in output buffer
+            for (uint i = 0; i < ctx.outlen / 4; i++) {
+                out |= bytes32(uint256(getWords32(ctx.h[i]))) << ((7 - i) * 32);
+            }
         }
     }
 
@@ -432,12 +404,12 @@ library Blake2S {
      * @param a The 32-bit word in little-endian format.
      * @return b The 32-bit word in big-endian format.
      */
-    function getWords32(uint32 a) private pure returns (uint32 b) {
+    function getWords32(uint256 a) private view returns (uint256 b) {
         return
             (a >> 24) |
             ((a >> 8) & 0x0000FF00) |
             ((a << 8) & 0x00FF0000) |
-            (a << 24);
+            ((a << 24) & 0xFF000000);
     }
 
     /**
@@ -454,23 +426,23 @@ library Blake2S {
      * It is a core part of the compression function, which is in turn a core part of the BLAKE2s hash function.
      */
     function G(
-        uint32[16] memory v,
-        uint a,
-        uint b,
-        uint c,
-        uint d,
-        uint32 x,
-        uint32 y
-    ) private pure {
+        uint256[16] memory v,
+        uint256 a,
+        uint256 b,
+        uint256 c,
+        uint256 d,
+        uint256 x,
+        uint256 y
+    ) private view {
         unchecked {
-            v[a] = v[a] + v[b] + x;
-            v[d] = ((v[d] ^ v[a]) >> 16) | ((v[d] ^ v[a]) << 16);
-            v[c] = v[c] + v[d];
-            v[b] = ((v[b] ^ v[c]) >> 12) | ((v[b] ^ v[c]) << 20);
-            v[a] = v[a] + v[b] + y;
-            v[d] = ((v[d] ^ v[a]) >> 8) | ((v[d] ^ v[a]) << 24);
-            v[c] = v[c] + v[d];
-            v[b] = ((v[b] ^ v[c]) >> 7) | ((v[b] ^ v[c]) << 25);
+            v[a] = (v[a] + v[b] + x) & 0xFFFFFFFF;
+            v[d] = (((v[d] ^ v[a]) >> 16) | ((v[d] ^ v[a]) << 16)) & 0xFFFFFFFF;
+            v[c] = (v[c] + v[d]) & 0xFFFFFFFF;
+            v[b] = (((v[b] ^ v[c]) >> 12) | ((v[b] ^ v[c]) << 20)) & 0xFFFFFFFF;
+            v[a] = (v[a] + v[b] + y) & 0xFFFFFFFF;
+            v[d] = (((v[d] ^ v[a]) >> 8) | ((v[d] ^ v[a]) << 24)) & 0xFFFFFFFF;
+            v[c] = (v[c] + v[d]) & 0xFFFFFFFF;
+            v[b] = (((v[b] ^ v[c]) >> 7) | ((v[b] ^ v[c]) << 25)) & 0xFFFFFFFF;
         }
     }
 }
