@@ -90,8 +90,13 @@ library Blake2S {
         bytes memory key,
         uint256[2] memory salt,
         uint256[2] memory person
-    ) public view {
+    ) internal view {
         if (outlen == 0 || outlen > 32 || outlen % 4 != 0 || key.length > 32) revert("outlen");
+
+        ctx.b[0] = 0;
+        ctx.b[1] = 0;
+        ctx.t = 0;
+        ctx.c = 0;
 
         // Initialize chained-state to IV
         //I think it's more gas efficient to assign the values directly to the array instead of assigning them one by one
@@ -127,7 +132,7 @@ library Blake2S {
      * - 204320
      * - 
      */
-    function update(BLAKE2S_ctx memory ctx, bytes memory input) public view {
+    function update(BLAKE2S_ctx memory ctx, bytes memory input) internal view {
         unchecked {
             uint256 inputLength = uint32(input.length);
             uint256 c = ctx.c;
@@ -169,13 +174,13 @@ library Blake2S {
      * the internal state with the result of the compression. If 'last' is true, it also performs
      * the necessary operations to finalize the hash, such as inverting the finalization flag.
      */
-    function compress(BLAKE2S_ctx memory ctx, bool last) public view {
-        uint256[16] memory m;
+    function compress(BLAKE2S_ctx memory ctx, bool last) internal view {
         uint256[16] memory v;
 
         // Initialize v[0..15]
-        for (uint i = 0; i < 8; i++) {
-            v[i] = ctx.h[i]; // First half from the state
+        assembly {
+            // memcpy ctx.h[:8] -> v[:8]
+            pop(staticcall(not(0), 0x4, mload(add(ctx, 32)), 256, v, 256))
         }
         // Second half from the IV
         v[8] = IV0;
@@ -197,42 +202,20 @@ library Blake2S {
             v[14] = (~v[14]) & 0xFFFFFFFF;
         }
 
-        // Initialize m[0..15] with the bytes from the input buffer
-        // for (uint i = 0; i < 16; i++) {
-        //     //input buffer ctx b is 2x32 bytes long; To fill the 16 words of m from the 64 bytes of ctx.b, We copt the first 8 byte from the first 32 bytes of ctx.b and the second 8 bytes from the second 32 bytes of ctx.b
-        //     //Execution would be reverting due to overflow caused by modulo 256, hence its unchecked
-
-        //     //The code in the comment below is the same as the code in the unchecked block but more readable
-        //     // uint256 bufferSlice = ctx.b[i / 8];
-        //     // uint offset = (256 - (((i + 1) * 32))) % 256;
-        //     // uint32 currentWord = uint32(bufferSlice >> offset);
-        //     unchecked {
-        //         m[i] = getWords32(
-        //             uint32(ctx.b[i / 8] >> (256 - (((i + 1) * 32))) % 256)
-        //         );
-        //     }
-        // }
         unchecked {
+            // Initialize b0 and b1 with the bytes from the input buffer, and swap their endianness
             uint256 b0 = ctx.b[0];
             uint256 b1 = ctx.b[1];
 
-            // get words 32 (a) :  (a >> 24) | ((a >> 8) & 0x0000FF00) | ((a << 8) & 0x00FF0000) | (a << 24);
-            m[0] = getWords32(uint32(b0 >> 224));
-            m[1] = getWords32(uint32(b0 >> 192));
-            m[2] = getWords32(uint32(b0 >> 160));
-            m[3] = getWords32(uint32(b0 >> 128));
-            m[4] = getWords32(uint32(b0 >> 96));
-            m[5] = getWords32(uint32(b0 >> 64));
-            m[6] = getWords32(uint32(b0 >> 32));
-            m[7] = getWords32(uint32(b0));
-            m[8] = getWords32(uint32(b1 >> 224));
-            m[9] = getWords32(uint32(b1 >> 192));
-            m[10] = getWords32(uint32(b1 >> 160));
-            m[11] = getWords32(uint32(b1 >> 128));
-            m[12] = getWords32(uint32(b1 >> 96));
-            m[13] = getWords32(uint32(b1 >> 64));
-            m[14] = getWords32(uint32(b1 >> 32));
-            m[15] = getWords32(uint32(b1));
+            // Swap endianness on 32bit words
+            b0 = ((b0 >> 24) & 0x000000FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF) | 
+                 ((b0 >> 8) & 0x0000FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF00) | 
+                 ((b0 << 8) & 0x00FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF0000) | 
+                 ((b0 << 24) & 0xFF000000FF000000FF000000FF000000FF000000FF000000FF000000FF000000);
+            b1 = ((b1 >> 24) & 0x000000FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF) | 
+                 ((b1 >> 8) & 0x0000FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF00) | 
+                 ((b1 << 8) & 0x00FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF0000) | 
+                 ((b1 << 24) & 0xFF000000FF000000FF000000FF000000FF000000FF000000FF000000FF000000);
 
             // // SIGMA Block according to rfc7693
             // uint8[16][10] memory SIGMA = [
@@ -295,104 +278,104 @@ library Blake2S {
                 }
 
                 // Round 0
-                G(v, 0, 128, 256, 384, mload(add(m, 0)), mload(add(m, 32)))
-                G(v, 32, 160, 288, 416, mload(add(m, 64)), mload(add(m, 96)))
-                G(v, 64, 192, 320, 448, mload(add(m, 128)), mload(add(m, 160)))
-                G(v, 96, 224, 352, 480, mload(add(m, 192)), mload(add(m, 224)))
-                G(v, 0, 160, 320, 480, mload(add(m, 256)), mload(add(m, 288)))
-                G(v, 32, 192, 352, 384, mload(add(m, 320)), mload(add(m, 352)))
-                G(v, 64, 224, 256, 416, mload(add(m, 384)), mload(add(m, 416)))
-                G(v, 96, 128, 288, 448, mload(add(m, 448)), mload(add(m, 480)))
+                G(v, 0, 128, 256, 384, and(shr(224, b0), 0xFFFFFFFF), and(shr(192, b0), 0xFFFFFFFF))
+                G(v, 32, 160, 288, 416, and(shr(160, b0), 0xFFFFFFFF), and(shr(128, b0), 0xFFFFFFFF))
+                G(v, 64, 192, 320, 448, and(shr(96, b0), 0xFFFFFFFF), and(shr(64, b0), 0xFFFFFFFF))
+                G(v, 96, 224, 352, 480, and(shr(32, b0), 0xFFFFFFFF), and(shr(0, b0), 0xFFFFFFFF))
+                G(v, 0, 160, 320, 480, and(shr(224, b1), 0xFFFFFFFF), and(shr(192, b1), 0xFFFFFFFF))
+                G(v, 32, 192, 352, 384, and(shr(160, b1), 0xFFFFFFFF), and(shr(128, b1), 0xFFFFFFFF))
+                G(v, 64, 224, 256, 416, and(shr(96, b1), 0xFFFFFFFF), and(shr(64, b1), 0xFFFFFFFF))
+                G(v, 96, 128, 288, 448, and(shr(32, b1), 0xFFFFFFFF), and(shr(0, b1), 0xFFFFFFFF))
 
                 // Round 1
-                G(v, 0, 128, 256, 384, mload(add(m, 448)), mload(add(m, 320)))
-                G(v, 32, 160, 288, 416, mload(add(m, 128)), mload(add(m, 256)))
-                G(v, 64, 192, 320, 448, mload(add(m, 288)), mload(add(m, 480)))
-                G(v, 96, 224, 352, 480, mload(add(m, 416)), mload(add(m, 192)))
-                G(v, 0, 160, 320, 480, mload(add(m, 32)), mload(add(m, 384)))
-                G(v, 32, 192, 352, 384, mload(add(m, 0)), mload(add(m, 64)))
-                G(v, 64, 224, 256, 416, mload(add(m, 352)), mload(add(m, 224)))
-                G(v, 96, 128, 288, 448, mload(add(m, 160)), mload(add(m, 96)))
+                G(v, 0, 128, 256, 384, and(shr(32, b1), 0xFFFFFFFF), and(shr(160, b1), 0xFFFFFFFF))
+                G(v, 32, 160, 288, 416, and(shr(96, b0), 0xFFFFFFFF), and(shr(224, b1), 0xFFFFFFFF))
+                G(v, 64, 192, 320, 448, and(shr(192, b1), 0xFFFFFFFF), and(shr(0, b1), 0xFFFFFFFF))
+                G(v, 96, 224, 352, 480, and(shr(64, b1), 0xFFFFFFFF), and(shr(32, b0), 0xFFFFFFFF))
+                G(v, 0, 160, 320, 480, and(shr(192, b0), 0xFFFFFFFF), and(shr(96, b1), 0xFFFFFFFF))
+                G(v, 32, 192, 352, 384, and(shr(224, b0), 0xFFFFFFFF), and(shr(160, b0), 0xFFFFFFFF))
+                G(v, 64, 224, 256, 416, and(shr(128, b1), 0xFFFFFFFF), and(shr(0, b0), 0xFFFFFFFF))
+                G(v, 96, 128, 288, 448, and(shr(64, b0), 0xFFFFFFFF), and(shr(128, b0), 0xFFFFFFFF))
 
                 // Round 2
-                G(v, 0, 128, 256, 384, mload(add(m, 352)), mload(add(m, 256)))
-                G(v, 32, 160, 288, 416, mload(add(m, 384)), mload(add(m, 0)))
-                G(v, 64, 192, 320, 448, mload(add(m, 160)), mload(add(m, 64)))
-                G(v, 96, 224, 352, 480, mload(add(m, 480)), mload(add(m, 416)))
-                G(v, 0, 160, 320, 480, mload(add(m, 320)), mload(add(m, 448)))
-                G(v, 32, 192, 352, 384, mload(add(m, 96)), mload(add(m, 192)))
-                G(v, 64, 224, 256, 416, mload(add(m, 224)), mload(add(m, 32)))
-                G(v, 96, 128, 288, 448, mload(add(m, 288)), mload(add(m, 128)))
+                G(v, 0, 128, 256, 384, and(shr(128, b1), 0xFFFFFFFF), and(shr(224, b1), 0xFFFFFFFF))
+                G(v, 32, 160, 288, 416, and(shr(96, b1), 0xFFFFFFFF), and(shr(224, b0), 0xFFFFFFFF))
+                G(v, 64, 192, 320, 448, and(shr(64, b0), 0xFFFFFFFF), and(shr(160, b0), 0xFFFFFFFF))
+                G(v, 96, 224, 352, 480, and(shr(0, b1), 0xFFFFFFFF), and(shr(64, b1), 0xFFFFFFFF))
+                G(v, 0, 160, 320, 480, and(shr(160, b1), 0xFFFFFFFF), and(shr(32, b1), 0xFFFFFFFF))
+                G(v, 32, 192, 352, 384, and(shr(128, b0), 0xFFFFFFFF), and(shr(32, b0), 0xFFFFFFFF))
+                G(v, 64, 224, 256, 416, and(shr(0, b0), 0xFFFFFFFF), and(shr(192, b0), 0xFFFFFFFF))
+                G(v, 96, 128, 288, 448, and(shr(192, b1), 0xFFFFFFFF), and(shr(96, b0), 0xFFFFFFFF))
                 
                 // Round 3
-                G(v, 0, 128, 256, 384, mload(add(m, 224)), mload(add(m, 288)))
-                G(v, 32, 160, 288, 416, mload(add(m, 96)), mload(add(m, 32)))
-                G(v, 64, 192, 320, 448, mload(add(m, 416)), mload(add(m, 384)))
-                G(v, 96, 224, 352, 480, mload(add(m, 352)), mload(add(m, 448)))
-                G(v, 0, 160, 320, 480, mload(add(m, 64)), mload(add(m, 192)))
-                G(v, 32, 192, 352, 384, mload(add(m, 160)), mload(add(m, 320)))
-                G(v, 64, 224, 256, 416, mload(add(m, 128)), mload(add(m, 0)))
-                G(v, 96, 128, 288, 448, mload(add(m, 480)), mload(add(m, 256)))
+                G(v, 0, 128, 256, 384, and(shr(0, b0), 0xFFFFFFFF), and(shr(192, b1), 0xFFFFFFFF))
+                G(v, 32, 160, 288, 416, and(shr(128, b0), 0xFFFFFFFF), and(shr(192, b0), 0xFFFFFFFF))
+                G(v, 64, 192, 320, 448, and(shr(64, b1), 0xFFFFFFFF), and(shr(96, b1), 0xFFFFFFFF))
+                G(v, 96, 224, 352, 480, and(shr(128, b1), 0xFFFFFFFF), and(shr(32, b1), 0xFFFFFFFF))
+                G(v, 0, 160, 320, 480, and(shr(160, b0), 0xFFFFFFFF), and(shr(32, b0), 0xFFFFFFFF))
+                G(v, 32, 192, 352, 384, and(shr(64, b0), 0xFFFFFFFF), and(shr(160, b1), 0xFFFFFFFF))
+                G(v, 64, 224, 256, 416, and(shr(96, b0), 0xFFFFFFFF), and(shr(224, b0), 0xFFFFFFFF))
+                G(v, 96, 128, 288, 448, and(shr(0, b1), 0xFFFFFFFF), and(shr(224, b1), 0xFFFFFFFF))
 
                 // Round 4
-                G(v, 0, 128, 256, 384, mload(add(m, 288)), mload(add(m, 0)))
-                G(v, 32, 160, 288, 416, mload(add(m, 160)), mload(add(m, 224)))
-                G(v, 64, 192, 320, 448, mload(add(m, 64)), mload(add(m, 128)))
-                G(v, 96, 224, 352, 480, mload(add(m, 320)), mload(add(m, 480)))
-                G(v, 0, 160, 320, 480, mload(add(m, 448)), mload(add(m, 32)))
-                G(v, 32, 192, 352, 384, mload(add(m, 352)), mload(add(m, 384)))
-                G(v, 64, 224, 256, 416, mload(add(m, 192)), mload(add(m, 256)))
-                G(v, 96, 128, 288, 448, mload(add(m, 96)), mload(add(m, 416)))
+                G(v, 0, 128, 256, 384, and(shr(192, b1), 0xFFFFFFFF), and(shr(224, b0), 0xFFFFFFFF))
+                G(v, 32, 160, 288, 416, and(shr(64, b0), 0xFFFFFFFF), and(shr(0, b0), 0xFFFFFFFF))
+                G(v, 64, 192, 320, 448, and(shr(160, b0), 0xFFFFFFFF), and(shr(96, b0), 0xFFFFFFFF))
+                G(v, 96, 224, 352, 480, and(shr(160, b1), 0xFFFFFFFF), and(shr(0, b1), 0xFFFFFFFF))
+                G(v, 0, 160, 320, 480, and(shr(32, b1), 0xFFFFFFFF), and(shr(192, b0), 0xFFFFFFFF))
+                G(v, 32, 192, 352, 384, and(shr(128, b1), 0xFFFFFFFF), and(shr(96, b1), 0xFFFFFFFF))
+                G(v, 64, 224, 256, 416, and(shr(32, b0), 0xFFFFFFFF), and(shr(224, b1), 0xFFFFFFFF))
+                G(v, 96, 128, 288, 448, and(shr(128, b0), 0xFFFFFFFF), and(shr(64, b1), 0xFFFFFFFF))
 
                 // Round 5
-                G(v, 0, 128, 256, 384, mload(add(m, 64)), mload(add(m, 384)))
-                G(v, 32, 160, 288, 416, mload(add(m, 192)), mload(add(m, 320)))
-                G(v, 64, 192, 320, 448, mload(add(m, 0)), mload(add(m, 352)))
-                G(v, 96, 224, 352, 480, mload(add(m, 256)), mload(add(m, 96)))
-                G(v, 0, 160, 320, 480, mload(add(m, 128)), mload(add(m, 416)))
-                G(v, 32, 192, 352, 384, mload(add(m, 224)), mload(add(m, 160)))
-                G(v, 64, 224, 256, 416, mload(add(m, 480)), mload(add(m, 448)))
-                G(v, 96, 128, 288, 448, mload(add(m, 32)), mload(add(m, 288)))
+                G(v, 0, 128, 256, 384, and(shr(160, b0), 0xFFFFFFFF), and(shr(96, b1), 0xFFFFFFFF))
+                G(v, 32, 160, 288, 416, and(shr(32, b0), 0xFFFFFFFF), and(shr(160, b1), 0xFFFFFFFF))
+                G(v, 64, 192, 320, 448, and(shr(224, b0), 0xFFFFFFFF), and(shr(128, b1), 0xFFFFFFFF))
+                G(v, 96, 224, 352, 480, and(shr(224, b1), 0xFFFFFFFF), and(shr(128, b0), 0xFFFFFFFF))
+                G(v, 0, 160, 320, 480, and(shr(96, b0), 0xFFFFFFFF), and(shr(64, b1), 0xFFFFFFFF))
+                G(v, 32, 192, 352, 384, and(shr(0, b0), 0xFFFFFFFF), and(shr(64, b0), 0xFFFFFFFF))
+                G(v, 64, 224, 256, 416, and(shr(0, b1), 0xFFFFFFFF), and(shr(32, b1), 0xFFFFFFFF))
+                G(v, 96, 128, 288, 448, and(shr(192, b0), 0xFFFFFFFF), and(shr(192, b1), 0xFFFFFFFF))
 
                 // Round 6
-                G(v, 0, 128, 256, 384, mload(add(m, 384)), mload(add(m, 160)))
-                G(v, 32, 160, 288, 416, mload(add(m, 32)), mload(add(m, 480)))
-                G(v, 64, 192, 320, 448, mload(add(m, 448)), mload(add(m, 416)))
-                G(v, 96, 224, 352, 480, mload(add(m, 128)), mload(add(m, 320)))
-                G(v, 0, 160, 320, 480, mload(add(m, 0)), mload(add(m, 224)))
-                G(v, 32, 192, 352, 384, mload(add(m, 192)), mload(add(m, 96)))
-                G(v, 64, 224, 256, 416, mload(add(m, 288)), mload(add(m, 64)))
-                G(v, 96, 128, 288, 448, mload(add(m, 256)), mload(add(m, 352)))
+                G(v, 0, 128, 256, 384, and(shr(96, b1), 0xFFFFFFFF), and(shr(64, b0), 0xFFFFFFFF))
+                G(v, 32, 160, 288, 416, and(shr(192, b0), 0xFFFFFFFF), and(shr(0, b1), 0xFFFFFFFF))
+                G(v, 64, 192, 320, 448, and(shr(32, b1), 0xFFFFFFFF), and(shr(64, b1), 0xFFFFFFFF))
+                G(v, 96, 224, 352, 480, and(shr(96, b0), 0xFFFFFFFF), and(shr(160, b1), 0xFFFFFFFF))
+                G(v, 0, 160, 320, 480, and(shr(224, b0), 0xFFFFFFFF), and(shr(0, b0), 0xFFFFFFFF))
+                G(v, 32, 192, 352, 384, and(shr(32, b0), 0xFFFFFFFF), and(shr(128, b0), 0xFFFFFFFF))
+                G(v, 64, 224, 256, 416, and(shr(192, b1), 0xFFFFFFFF), and(shr(160, b0), 0xFFFFFFFF))
+                G(v, 96, 128, 288, 448, and(shr(224, b1), 0xFFFFFFFF), and(shr(128, b1), 0xFFFFFFFF))
 
                 // Round 7
-                G(v, 0, 128, 256, 384, mload(add(m, 416)), mload(add(m, 352)))
-                G(v, 32, 160, 288, 416, mload(add(m, 224)), mload(add(m, 448)))
-                G(v, 64, 192, 320, 448, mload(add(m, 384)), mload(add(m, 32)))
-                G(v, 96, 224, 352, 480, mload(add(m, 96)), mload(add(m, 288)))
-                G(v, 0, 160, 320, 480, mload(add(m, 160)), mload(add(m, 0)))
-                G(v, 32, 192, 352, 384, mload(add(m, 480)), mload(add(m, 128)))
-                G(v, 64, 224, 256, 416, mload(add(m, 256)), mload(add(m, 192)))
-                G(v, 96, 128, 288, 448, mload(add(m, 64)), mload(add(m, 320)))
+                G(v, 0, 128, 256, 384, and(shr(64, b1), 0xFFFFFFFF), and(shr(128, b1), 0xFFFFFFFF))
+                G(v, 32, 160, 288, 416, and(shr(0, b0), 0xFFFFFFFF), and(shr(32, b1), 0xFFFFFFFF))
+                G(v, 64, 192, 320, 448, and(shr(96, b1), 0xFFFFFFFF), and(shr(192, b0), 0xFFFFFFFF))
+                G(v, 96, 224, 352, 480, and(shr(128, b0), 0xFFFFFFFF), and(shr(192, b1), 0xFFFFFFFF))
+                G(v, 0, 160, 320, 480, and(shr(64, b0), 0xFFFFFFFF), and(shr(224, b0), 0xFFFFFFFF))
+                G(v, 32, 192, 352, 384, and(shr(0, b1), 0xFFFFFFFF), and(shr(96, b0), 0xFFFFFFFF))
+                G(v, 64, 224, 256, 416, and(shr(224, b1), 0xFFFFFFFF), and(shr(32, b0), 0xFFFFFFFF))
+                G(v, 96, 128, 288, 448, and(shr(160, b0), 0xFFFFFFFF), and(shr(160, b1), 0xFFFFFFFF))
 
                 // Round 8
-                G(v, 0, 128, 256, 384, mload(add(m, 192)), mload(add(m, 480)))
-                G(v, 32, 160, 288, 416, mload(add(m, 448)), mload(add(m, 288)))
-                G(v, 64, 192, 320, 448, mload(add(m, 352)), mload(add(m, 96)))
-                G(v, 96, 224, 352, 480, mload(add(m, 0)), mload(add(m, 256)))
-                G(v, 0, 160, 320, 480, mload(add(m, 384)), mload(add(m, 64)))
-                G(v, 32, 192, 352, 384, mload(add(m, 416)), mload(add(m, 224)))
-                G(v, 64, 224, 256, 416, mload(add(m, 32)), mload(add(m, 128)))
-                G(v, 96, 128, 288, 448, mload(add(m, 320)), mload(add(m, 160)))
+                G(v, 0, 128, 256, 384, and(shr(32, b0), 0xFFFFFFFF), and(shr(0, b1), 0xFFFFFFFF))
+                G(v, 32, 160, 288, 416, and(shr(32, b1), 0xFFFFFFFF), and(shr(192, b1), 0xFFFFFFFF))
+                G(v, 64, 192, 320, 448, and(shr(128, b1), 0xFFFFFFFF), and(shr(128, b0), 0xFFFFFFFF))
+                G(v, 96, 224, 352, 480, and(shr(224, b0), 0xFFFFFFFF), and(shr(224, b1), 0xFFFFFFFF))
+                G(v, 0, 160, 320, 480, and(shr(96, b1), 0xFFFFFFFF), and(shr(160, b0), 0xFFFFFFFF))
+                G(v, 32, 192, 352, 384, and(shr(64, b1), 0xFFFFFFFF), and(shr(0, b0), 0xFFFFFFFF))
+                G(v, 64, 224, 256, 416, and(shr(192, b0), 0xFFFFFFFF), and(shr(96, b0), 0xFFFFFFFF))
+                G(v, 96, 128, 288, 448, and(shr(160, b1), 0xFFFFFFFF), and(shr(64, b0), 0xFFFFFFFF))
 
                 // Round 9
-                G(v, 0, 128, 256, 384, mload(add(m, 320)), mload(add(m, 64)))
-                G(v, 32, 160, 288, 416, mload(add(m, 256)), mload(add(m, 128)))
-                G(v, 64, 192, 320, 448, mload(add(m, 224)), mload(add(m, 192)))
-                G(v, 96, 224, 352, 480, mload(add(m, 32)), mload(add(m, 160)))
-                G(v, 0, 160, 320, 480, mload(add(m, 480)), mload(add(m, 352)))
-                G(v, 32, 192, 352, 384, mload(add(m, 288)), mload(add(m, 448)))
-                G(v, 64, 224, 256, 416, mload(add(m, 96)), mload(add(m, 384)))
-                G(v, 96, 128, 288, 448, mload(add(m, 416)), mload(add(m, 0)))
+                G(v, 0, 128, 256, 384, and(shr(160, b1), 0xFFFFFFFF), and(shr(160, b0), 0xFFFFFFFF))
+                G(v, 32, 160, 288, 416, and(shr(224, b1), 0xFFFFFFFF), and(shr(96, b0), 0xFFFFFFFF))
+                G(v, 64, 192, 320, 448, and(shr(0, b0), 0xFFFFFFFF), and(shr(32, b0), 0xFFFFFFFF))
+                G(v, 96, 224, 352, 480, and(shr(192, b0), 0xFFFFFFFF), and(shr(64, b0), 0xFFFFFFFF))
+                G(v, 0, 160, 320, 480, and(shr(0, b1), 0xFFFFFFFF), and(shr(128, b1), 0xFFFFFFFF))
+                G(v, 32, 192, 352, 384, and(shr(192, b1), 0xFFFFFFFF), and(shr(32, b1), 0xFFFFFFFF))
+                G(v, 64, 224, 256, 416, and(shr(128, b0), 0xFFFFFFFF), and(shr(96, b1), 0xFFFFFFFF))
+                G(v, 96, 128, 288, 448, and(shr(64, b1), 0xFFFFFFFF), and(shr(224, b0), 0xFFFFFFFF))
             }
         }
 
@@ -418,7 +401,7 @@ library Blake2S {
      */
     function finalize(
         BLAKE2S_ctx memory ctx
-    ) public view returns(bytes32 out) {
+    ) internal view returns(bytes32 out) {
         unchecked {
             // Add any uncounted bytes
             ctx.t += ctx.c;
