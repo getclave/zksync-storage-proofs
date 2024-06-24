@@ -1,7 +1,7 @@
-import { Interface } from "ethers";
+import { utils } from "ethers";
 
 /** Interface of the Diamond Contract */
-export const ZKSYNC_DIAMOND_INTERFACE = new Interface([
+export const ZKSYNC_DIAMOND_INTERFACE = new utils.Interface([
   `function commitBatchesSharedBridge(
         uint256 _chainId,
         (uint64,bytes32,uint64,uint256,bytes32,bytes32,uint256,bytes32) lastCommittedBatchData,
@@ -12,7 +12,7 @@ export const ZKSYNC_DIAMOND_INTERFACE = new Interface([
   `event BlockCommit(uint256 indexed batchNumber, bytes32 indexed batchHash, bytes32 indexed commitment)`,
 ]);
 
-export const STORAGE_VERIFIER_INTERFACE = new Interface([
+export const STORAGE_VERIFIER_INTERFACE = new utils.Interface([
   `function verify(
         ( (uint64 batchNumber,
            uint64 indexRepeatedStorageChanges,

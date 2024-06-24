@@ -1,8 +1,4 @@
-import {
-  Provider as L1Provider,
-  JsonRpcProvider as L1JsonRpcProvider,
-  Contract,
-} from "ethers";
+import { providers, Contract } from "ethers";
 import { Provider as L2Provider } from "zksync-ethers";
 import {
   BatchMetadata,
@@ -16,6 +12,9 @@ import {
   ZKSYNC_DIAMOND_INTERFACE,
   STORAGE_VERIFIER_INTERFACE,
 } from "./interfaces";
+
+type L1Provider = providers.Provider;
+const { JsonRpcProvider: L1JsonRpcProvider } = providers;
 
 /** Omits batch hash from stored batch info */
 const formatStoredBatchInfo = (batchInfo: StoredBatchInfo): BatchMetadata => {
