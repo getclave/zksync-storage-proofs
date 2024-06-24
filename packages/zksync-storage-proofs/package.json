@@ -18,5 +18,6 @@
     },
     "scripts": {
         "start": "npx tsc && node build/index.js"
-    }
+    },
+    "version": "1.0.1"
 }
