@@ -1,6 +1,7 @@
 {
     "name": "@getclave/zksync-storage-proofs",
-    "version": "1.0.4-ethers5",
+    "version": "1.0.5-ethers5",
+    "main": "build/index.js",
     "module": "index.ts",
     "type": "module",
     "devDependencies": {
