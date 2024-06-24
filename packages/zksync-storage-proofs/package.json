@@ -1,23 +1,23 @@
 {
-    "name": "@getclave/zksync-storage-proof",
-    "module": "index.ts",
-    "type": "module",
-    "devDependencies": {
-        "@types/node": "^20.11.16",
-        "bun-types": "latest",
-        "nodemon": "^3.0.3",
-        "ts-node": "^10.9.2",
-        "typescript": "^5.3.3"
-    },
-    "peerDependencies": {
-        "typescript": "^5.0.0"
-    },
-    "dependencies": {
-        "ethers": "^6.10.0",
-        "zksync-ethers": "^6.1.0"
-    },
-    "scripts": {
-        "start": "npx tsc && node build/index.js"
-    },
-    "version": "1.0.1"
+  "name": "@getclave/zksync-storage-proofs",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "bun-types": "latest",
+    "nodemon": "^3.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "ethers": "^6.10.0",
+    "zksync-ethers": "^6.1.0"
+  },
+  "scripts": {
+    "start": "npx tsc && node build/index.js"
+  },
+  "version": "1.0.1"
 }
