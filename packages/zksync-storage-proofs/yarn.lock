@@ -187,7 +187,7 @@ diff@^4.0.1:
   resolved "https://registry.yarnpkg.com/diff/-/diff-4.0.2.tgz#60f3aecb89d5fae520c11aa19efc2bb982aade7d"
   integrity sha512-58lmxKSA4BNyLz+HHMUzlOEpg09FV+ev6ZMe3vJihgdxzgcwZ8VoEEPmALCZG9LmqfVoNMMKpttIYTVG6uDY7A==
 
-ethers@^6.10.0:
+ethers@6.10.0:
   version "6.10.0"
   resolved "https://registry.yarnpkg.com/ethers/-/ethers-6.10.0.tgz#20f3c63c60d59a993f8090ad423d8a3854b3b1cd"
   integrity sha512-nMNwYHzs6V1FR3Y4cdfxSQmNgZsRj1RiTU25JwvnJLmyzw9z3SKxNc2XKDuiXXo/v9ds5Mp9m6HBabgYQQ26tA==
@@ -421,7 +421,7 @@ yn@3.1.1:
   resolved "https://registry.yarnpkg.com/yn/-/yn-3.1.1.tgz#1e87401a09d767c1d5eab26a6e4c185182d2eb50"
   integrity sha512-Ux4ygGWsu2c7isFWe8Yu1YluJmqVhxqK2cLXNQA5AcC3QfbGNpM7fu0Y8b/z16pXLnFxZYvWhd3fhBY9DLmC6Q==
 
-zksync-ethers@^6.1.0:
+zksync-ethers@6.1.0:
   version "6.1.0"
   resolved "https://registry.yarnpkg.com/zksync-ethers/-/zksync-ethers-6.1.0.tgz#8fcb973cea39463571839b3c77ec75fe3399d2bf"
   integrity sha512-o7pVcPna6yfGljq88mrnoJXALK+nFjZ6rZkuaZ5XahQ26i5dstwgZ7zusuu9neFGXlKqVF6HBirvn+pZ3IKXJA==
