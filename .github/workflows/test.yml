@@ -22,16 +22,17 @@ jobs:
         with:
           version: nightly
 
-      - name: Run Slither analysis on Solidity files
-        uses: crytic/slither-action@v0.4.0
-        with:
-          target: packages/zksync-storage-contracts
-
       - name: Run Forge build
         run: |
           forge --version
           forge build --sizes
         id: build
+
+      - name: Run Slither analysis on Solidity files
+        uses: crytic/slither-action@v0.4.0
+        with:
+          target: packages/zksync-storage-contracts
+          ignore-compile: true
 
       - name: Run Forge tests
         run: |
