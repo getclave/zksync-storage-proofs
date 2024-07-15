@@ -36,7 +36,7 @@ jobs:
 
       - name: Run Forge tests
         run: |
-          forge test -vvv --root packages/zksync-storage-contracts/test/SparseMerkleTree.t.sol
+          forge test -vvv
         id: test
 
       - name: Run Echidna for zksync-storage-contracts
