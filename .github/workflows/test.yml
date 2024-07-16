@@ -45,6 +45,3 @@ jobs:
           files: .
           contract: packages/zksync-storage-contracts
           crytic-args: --ignore-compile
-        env:
-          FOUNDRY_PROFILE: ci
-          INTERNAL_GITHUB_WORKSPACE: "/home/runner/work/zksync-storage-proofs/zksync-storage-proofs"
