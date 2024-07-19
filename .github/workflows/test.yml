@@ -38,3 +38,27 @@ jobs:
         run: |
           forge test -vvv --root packages/zksync-storage-contracts
         id: test
+
+      - name: Echidna scan on StorageProofVerifier
+        uses: crytic/echidna-action@v2
+        with:
+          files: packages/zksync-storage-contracts
+          contract: StorageProofVerifier
+
+      - name: Echidna scan on RegistryResolver
+        uses: crytic/echidna-action@v2
+        with:
+            files: packages/zksync-storage-contracts
+            contract: RegistryResolver
+
+      - name: Echidna scan on SparseMerkleTree
+        uses: crytic/echidna-action@v2
+        with:
+            files: packages/zksync-storage-contracts
+            contract: SparseMerkleTree
+
+      - name: Echidna scan on Blake2S
+        uses: crytic/echidna-action@v2
+        with:
+            files: packages/zksync-storage-contracts
+            contract: Blake2S
