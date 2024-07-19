@@ -43,26 +43,26 @@ jobs:
         uses: crytic/echidna-action@v2
         with:
           files: StorageProofVerifier
-          contract: packages/zksync-storage-contracts
+          contract: packages/zksync-storage-contracts/src
           crytic-args: --ignore-compile
 
       - name: Echidna scan on SparseMerkleTree
         uses: crytic/echidna-action@v2
         with:
           files: SparseMerkleTree
-          contract: packages/zksync-storage-contracts
+          contract: packages/zksync-storage-contracts/src
           crytic-args: --ignore-compile
 
       - name: Echidna scan on Blake2S
         uses: crytic/echidna-action@v2
         with:
           files: Blake2S
-          contract: packages/zksync-storage-contracts
+          contract: packages/zksync-storage-contracts/src
           crytic-args: --ignore-compile
 
       - name: Echidna scan on RegistryResolver
         uses: crytic/echidna-action@v2
         with:
           files: RegistryResolver
-          contract: packages/zksync-storage-contracts
+          contract: packages/zksync-storage-contracts/src/demo
           crytic-args: --ignore-compile
