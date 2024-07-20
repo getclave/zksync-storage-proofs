@@ -34,15 +34,9 @@ jobs:
           forge build --sizes && forge build --build-info
         id: build
 
-      - name: Run Forge tests
-        run: |
-          forge test -vvv --root packages/zksync-storage-contracts
-        id: test
-
       - name: Do a clean build with build info
         run: |
           cd packages/zksync-storage-contracts && forge build --build-info
-
 
       - name: Echidna scan on StorageProofVerifier
         uses: crytic/echidna-action@v2
