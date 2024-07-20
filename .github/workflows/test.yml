@@ -31,41 +31,10 @@ jobs:
       - name: Run Forge build
         run: |
           forge --version
-          forge build --sizes && forge build --build-info
+          forge build --sizes 
         id: build
 
-      - name: Do a clean build with build info
+      - name: Run Forge tests
         run: |
-          cd packages/zksync-storage-contracts && forge build --build-info
-
-      - name: Echidna scan on StorageProofVerifier
-        uses: crytic/echidna-action@v2
-        with:
-          files: packages/zksync-storage-contracts
-          contract: StorageProofVerifier
-          crytic-args: --ignore-compile
-          test-mode: assertion
-
-      - name: Echidna scan on RegistryResolver
-        uses: crytic/echidna-action@v2
-        with:
-            files: packages/zksync-storage-contracts
-            contract: RegistryResolver
-            crytic-args: --ignore-compile
-            test-mode: assertion
-
-      - name: Echidna scan on SparseMerkleTree
-        uses: crytic/echidna-action@v2
-        with:
-            files: packages/zksync-storage-contracts
-            contract: SparseMerkleTree
-            crytic-args: --ignore-compile
-            test-mode: assertion
-
-      - name: Echidna scan on Blake2S
-        uses: crytic/echidna-action@v2
-        with:
-            files: packages/zksync-storage-contracts
-            contract: Blake2S
-            crytic-args: --ignore-compile
-            test-mode: assertion
+          forge test -vvv --root packages/zksync-storage-contracts
+        id: test
