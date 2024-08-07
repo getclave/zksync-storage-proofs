@@ -1,4 +1,4 @@
-# zkSync Storage Contracts
+# ZKsync Storage Contracts
 
 ## Deployment
 🚧

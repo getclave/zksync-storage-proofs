@@ -1,6 +1,6 @@
 # zksync-storage
 
-Typescript library to generate and verify zkSync storage proofs
+Typescript library to generate and verify ZKsync storage proofs
 
 ## Install
 ```bash
