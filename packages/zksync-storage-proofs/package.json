@@ -1,6 +1,6 @@
 {
     "name": "@getclave/zksync-storage-proofs",
-    "version": "1.1.2-ethers5",
+    "version": "1.2.0-ethers5",
     "main": "build/cjs/index.js",
     "module": "build/esm/index.js",
     "types": "build/esm/index.d.ts",
