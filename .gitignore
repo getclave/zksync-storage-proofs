@@ -16,3 +16,8 @@ docs/
 
 # MacOS
 .DS_Store
+
+# Node modules
+node_modules/
+.vscode/
+.idea/

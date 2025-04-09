@@ -11,7 +11,7 @@ export interface StoredBatchInfo {
 }
 
 /** Metadata of the batch passed to the contract */
-export type BatchMetadata = Omit<StoredBatchInfo, "batchHash">;
+export type BatchMetadata = Omit<StoredBatchInfo, 'batchHash'>;
 
 /** Struct passed to contract by the sequencer for each batch */
 export interface CommitBatchInfo {
@@ -29,19 +29,18 @@ export interface CommitBatchInfo {
 
 /** Proof returned by zkSync RPC */
 export type RpcProof = {
-  account: string;
-  key: string;
-  path: Array<string>;
-  value: string;
-  index: number;
+    account: string;
+    key: string;
+    path: Array<string>;
+    value: string;
+    index: number;
 };
 
 export type StorageProofBatch = {
-  metadata: BatchMetadata;
-  proofs: RpcProof[];
-}
+    metadata: BatchMetadata;
+    proofs: RpcProof[];
+};
 
 export type StorageProof = RpcProof & {
-  metadata: BatchMetadata;
-}
-
+    metadata: BatchMetadata;
+};

@@ -1,0 +1,13 @@
+{
+  "name": "zksync-storage-proofs",
+  "version": "0.0.1",
+  "description": "ZkSync storage proofs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}
